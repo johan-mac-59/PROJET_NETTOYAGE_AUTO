@@ -42,6 +42,14 @@ def load_file(file_path: str) -> pd.DataFrame:
 
 def _load_csv(file_path: str) -> pd.DataFrame:
     """Charge un CSV en détectant automatiquement l'encodage et le séparateur."""
+
+    # --- NOUVEAU : Gestion du fichier vide ---
+    if os.path.getsize(file_path) == 0:
+        print(f"   -> ⚠️ Fichier vide détecté")
+        return pd.DataFrame() # On retourne un DataFrame vide sans lever d'erreur
+
+    # -----------------------------------------
+
     # 1. Détection de l'encodage
     encoding = _detect_encoding(file_path)
     
@@ -52,8 +60,12 @@ def _load_csv(file_path: str) -> pd.DataFrame:
     delimiter = _detect_delimiter(sample_text)
     print(f"   -> Séparateur : '{delimiter}' | Encodage : {encoding}")
 
-    # 3. Chargement complet du DataFrame
-    return pd.read_csv(file_path, sep=delimiter, encoding=encoding)
+    # 3. Chargement complet du DataFrame (avec gestion spécifique de EmptyDataError si besoin)
+    try:
+        return pd.read_csv(file_path, sep=delimiter, encoding=encoding)
+    except pd.errors.EmptyDataError:
+        # Au cas où le fichier n'est pas strictement vide mais sans colonnes valables
+        return pd.DataFrame()
 
 
 def _load_excel(file_path: str) -> pd.DataFrame:

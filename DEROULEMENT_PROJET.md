@@ -288,4 +288,62 @@ L'ordre d'exécution a été redéfini pour éviter les faux négatifs en Data S
 ### Impact sur le projet
 Ces ajustements rendent le script "Data Analyst" beaucoup plus résilient face à des fichiers réels, sales et mal formatés (comme ceux qu'on trouve souvent en entreprise). Le pipeline ne "plante" plus silencieusement sur des formats inattendus.
 
+---
 
+## Étape 9 : Structuration du Projet et Début des Tests Unitaires
+
+Dans cette phase, nous avons professionnalisé l'architecture du projet et commencé à garantir sa fiabilité grâce aux tests automatisés.
+
+### 1. Résolution des conflits d'environnement (uv) pour les tests
+Pour que pytest puisse importer nos modules correctement, deux ajustements cruciaux ont été faits :
+*   **Configuration de `pyproject.toml`** : Ajout de la section `[tool.pytest.ini_options]` avec `pythonpath = ["."]`. Cela dit explicitement à Python de regarder dans le dossier racine pour trouver les dossiers `src` et `tests`.
+*   **Nettoyage des fichiers markers** : Le fichier `src/__init__.py` (qui n'est qu'un marqueur de package) a été vidé. Il ne doit contenir aucun code, seulement indiquer à Python que le dossier est importable.
+
+### 2. Organisation du système de tests
+Nous utilisons **pytest**, la référence en matière de tests Python. 
+*   **Dossier `tests/`** : Tous les fichiers de test (`test_*.py`) sont isolés dans ce dossier.
+*   **Tests sur `file_loader.py`** : Nous avons créé des tests pour valider les fonctions de base :
+    *   Chargement nominal (CSV et Excel).
+    *   Détection automatique du séparateur et de l'encodage.
+    *   Gestion des erreurs (fichier inexistant, format non supporté).
+
+Résultats des tests sur file_loader
+Les tests ont permis de valider plusieurs points clés :
+
+Chargement CSV : Le fichier est bien lu et les colonnes détectées.
+Chargement Excel : Support du format .xlsx intégré.
+Gestion d'erreurs : Si on passe un fichier inexistant ou un format non supporté (ex: .txt), la fonction renvoie une erreur claire (FileNotFoundError ou ValueError) au lieu de planter le script silencieusement.
+tests/test_file_loader.py::TestLoadFile::test_chargement_csv_nominal PASSED            [ 10%]
+tests/test_file_loader.py::TestLoadFile::test_chargement_excel PASSED                  [ 20%]
+tests/test_file_loader.py::TestLoadFile::test_detection_separateur_virgule PASSED      [ 30%]
+tests/test_file_loader.py::TestLoadFileErrors::test_fichier_inexistant PASSED          [ 40%]
+tests/test_file_loader.py::TestLoadFileErrors::test_format_non_soutenu PASSED          [ 50%]
+tests/test_file_loader.py::TestLoadFileErrors::test_fichier_vide FAILED                [ 60%]
+tests/test_file_loader.py::TestHelpers::test_detect_encoding_utf8 PASSED               [ 70%]
+tests/test_file_loader.py::TestHelpers::test_detect_delimiter_semicolon PASSED         [ 80%]
+tests/test_file_loader.py::TestHelpers::test_detect_delimiter_tab PASSED               [ 90%]
+tests/test_file_loader.py::TestHelpers::test_detect_delimiter_default PASSED           [100%]
+
+
+### 3. Résolution du bug sur les fichiers vides (`test_fichier_vide FAILED`)
+
+**Problème initial :**
+Le test échouait car `pd.read_csv()` levait une exception `EmptyDataError` non capturée dès que le fichier était vide (0 octet ou seulement des sauts de ligne). Cela bloquait le chargement.
+
+**Correctif appliqué dans `file_loader.py` :**
+1.  **Vérification proactive :** Ajout d'un contrôle `os.path.getsize(file_path) == 0` au tout début de la fonction pour détecter les fichiers vides instantanément.
+2.  **Sécurité supplémentaire (try/except) :** Enveloppons l'appel à `pd.read_csv()` dans un bloc de capture spécifique :
+    ```python
+    try:
+        df = pd.read_csv(file_path, sep=delimiter, encoding=encoding)
+    except pd.errors.EmptyDataError:
+        # Retourne un DataFrame vide proprement au lieu de planter
+        return pd.DataFrame()
+    ```
+
+**Résultat final :** 
+La fonction `load_file` ne plante plus. Si le fichier est vide, elle retourne calmement un objet `pd.DataFrame()` vide (qui fait 0 ligne et 0 colonne). Le test passe donc avec succès.
+
+---
+
+## Récapitulatif final (V1.0 - Stable)
