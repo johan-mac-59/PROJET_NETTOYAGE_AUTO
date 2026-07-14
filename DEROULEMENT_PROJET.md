@@ -347,3 +347,68 @@ La fonction `load_file` ne plante plus. Si le fichier est vide, elle retourne ca
 ---
 
 ## Récapitulatif final (V1.0 - Stable)
+
+## Étape 10 : Stabilisation du Moteur de Nettoyage et Passage aux Tests Unitaires
+
+Cette étape est cruciale car elle marque le passage d'un "script qui fonctionne" à un "programme robuste et testé".
+
+### 1. Résolution des bugs dans `cleaner_engine.py`
+Nous avons corrigé plusieurs erreurs logiques persistantes :
+
+*   **Bug sur la `median` (Médiane)** : Le `fillna` de la médiane pour les colonnes numériques n'était pas appliqué directement au DataFrame (`df_cleaned`). Nous avons rectifié en écrivant explicitement `df_cleaned[col] = df_cleaned[col].fillna(median_val)`.
+*   **Bug sur le `mode` (Mode)** : La variable `col_mode` était parfois mal indentée ou non définie dans la boucle. Nous avons clarifié la logique pour que les colonnes de type "texte" (comme `'email'`) soient bien détectées, calculées via `.mode()[0]`, et ensuite remplies proprement avec `fillna`.
+*   **Gestion des types (`StringDtype`)** : Une colonne contenant du texte dans un fichier moderne Pandas n'est pas toujours de type `'object'`. Nous avons ajusté la logique pour que les conversions numériques (comme `'10.5'` → `float`) se fassent correctement en utilisant `pd.to_numeric()`.
+
+### 2. Premiers Tests Unitaires (`pytest`)
+Nous avons commencé à intégrer des tests automatisés pour garantir qu'un changement de code ne "casse" pas les fonctionnalités existantes (régression).
+
+**Résultats des tests sur le moteur de nettoyage (`cleaner_engine`)** :
+*   **Clean Missing Values** ✅ : Les fonctions de remplissage par la médiane et le mode fonctionnent.
+*   **Clean Types** ✅ : La détection automatique de colonnes à convertir (String → Numérique) est fiable.
+*   **Clean Duplicates** ✅ : Le nombre de doublons supprimés est correct.
+
+### 3. Impact sur l'architecture
+Grâce aux tests, nous pouvons désormais refactoriser le code en toute sécurité. 
+Le fichier `DEROULEMENT_PROJET.md` devient notre source de vérité technique, documentant chaque erreur rencontrée et sa solution.
+
+---
+
+### 4. Résolution des derniers bugs critiques dans cleaner_engine.py
+ ⚠️
+Le pipeline fonctionnait globalement mais restait bloqué par 3 erreurs de type ("TypeErrors" ou "Logique"). Voici comment elles ont été résolues pour garantir la compatibilité avec les versions récentes de pandas (2.x et 3.x) :
+
+Erreur sur les Types (
+clean_types
+) :
+
+Problème : Int64 est le type nullable de pandas, mais le test cherchait np.int64. Le test plantait.
+Solution : On a adapté la logique pour que les colonnes converties soient compatibles avec les vérifications de types standards tout en gardant la gestion des NaN.
+Erreur sur les Doubles (
+clean_duplicates
+) :
+
+Problème : Le test test_doublons_exact échouait (le DataFrame n'était pas modifié). C'était un problème d'ordre de nettoyage ou de copie du DataFrame.
+Solution : On a sécurisé l'appel avec .copy() et vérifié que les colonnes étaient bien traitées avant de supprimer les doublons.
+Erreur sur les Outliers (
+clean_outliers
+) :
+
+Problème : Tentative d'écriture de valeurs à virgule (la borne IQR) dans des colonnes entières (int64), ce qui provoque une erreur LossySetitemError.
+Solution : On convertit systématiquement les colonnes numériques en Float64 (qui accepte les NaN et les virgules) avant d'appliquer la logique IQR.
+
+### 5. Stabilisation du Pipeline et Passage aux Tests Unitaires 🛡️
+Nous avons maintenant un ensemble de tests automatisés qui s'assurent que chaque brique du nettoyage fonctionne individuellement :
+
+clean_empty_columns
+ ✅ : Supprime les colonnes avec >95% de NaN.
+clean_whitespace
+ ✅ : Nettoie les espaces superflus sans casser les données.
+clean_types
+ ✅ : Transforme automatiquement les strings en numbers/dates quand c'est pertinent.
+clean_duplicates
+ ✅ : Gère correctement les lignes identiques.
+clean_missing_values
+ ✅ : Remplit les trous avec la médiane (pour les chiffres) ou le mode (pour le texte).
+
+
+ 

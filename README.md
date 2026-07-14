@@ -1,5 +1,7 @@
 PROJET consistant à créer des outils intéractifs de nettoyage automatique de fichier .CVS, .JSON
 
+*** PROJET EN COURS ***
+
 
 
 =================================================================================
