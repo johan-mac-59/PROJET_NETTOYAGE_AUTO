@@ -411,4 +411,54 @@ clean_missing_values
  ✅ : Remplit les trous avec la médiane (pour les chiffres) ou le mode (pour le texte).
 
 
- 
+### 6. Tentative d'automatisation du nettoyage des Outliers (Boucle IQR itérative)
+
+**Pourquoi cette fonctionnalité ?**
+Le test de régression (`test_correction_iqr`) a révélé une faille critique de l'algorithme IQR simple sur les petits échantillons. 
+*   *Le problème :* Si on a `[0, 1, 2, -999]`, Q1 est à 0 (ou 0.25). La borne inférieure devient $0 - 1.5 \times 1.2 = -1.8$. Or, **-999 est plus grand que -1.8**. L'algorithme pense donc que le "monstre" est valide.
+
+**Ce qu'on essaie de faire :**
+Au lieu d'appliquer les bornes une seule fois (One-pass), nous implémentons une fonction `clean_outliers_robust` qui :
+1.  Calcule les bornes IQR actuelles.
+2.  Repère si des valeurs se trouvent à l'extérieur de ces bornes.
+3.  Si c'est le cas, **remplace** temporairement ces valeurs aberrantes par la borne la plus proche (winsorisation stricte).
+4.  Recommence le calcul des bornes sur les nouvelles données "assainies".
+5.  Boucle tant que toutes les valeurs sont comprises dans les bornes ou qu'on a atteint un seuil de sécurité (10 itérations max pour éviter les boucles infinies).
+
+**État actuel :** En cours d'intégration avec des tests unitaires spécifiques (`test_iqr_multi_pass`).
+
+ ---
+
+## Étape 11 : Analyse de Régression et Tests Unitaires (`pytest`)
+
+### Contexte
+En lançant les tests unitaires (`pytest`) pour valider l'architecture modulaire, nous avons constaté une régression inattendue. Le script principal (`main.py`) fonctionne car il utilise correctement le retour des fonctions (assignation), mais les fonctions isolées dans `cleaner_engine.py` posent problème dans un contexte de test pur.
+
+### Résultats des tests (14 collectés)
+- **11 Passed** ✅ (La logique globale et le pipeline d'intégration passent).
+- **3 Failed** ❌ (Des anomalies persistantes dans les fonctions isolées).
+
+### 1. Échec sur `clean_duplicates` (`test_doublons_exact`)
+*   **Symptôme :** Le test s'attend à ce que la longueur du DataFrame passe de 4 à 3, mais elle reste à 4.
+*   **Analyse technique :** Cette fonction est une "fonction pure" : elle retourne un tuple `(df_cleaned, count)` mais ne modifie pas le DataFrame d'origine. Dans `main.py`, l'appel est correct (`df = clean(df)[0]`), mais dans le test unitaire, il faut impérativement récupérer le premier élément du retour.
+*   **Leçon :** L'intégration via `main.py` masque parfois les erreurs si on n'affecte pas bien la variable de retour.
+
+### 2. Échec sur `clean_outliers` (`test_correction_iqr`)
+*   **Symptôme :** La valeur aberrante `-999` est toujours présente dans le DataFrame nettoyé.
+*   **Analyse technique :** L'algorithme IQR calcule des bornes basées sur Q1 et Q3. Avec un échantillon très petit (3 ou 4 points) et une outlier si extrême, les quartiles sont décalés. La borne inférieure calculée est parfois *plus basse* que -999 (ex: Q1=-600), rendant la valeur "valide" aux yeux du script.
+*   **Piste de correction :** Ajouter un filtre préalable ou une logique de détection par écart-type si le DataFrame est trop petit pour être représentatif des quartiles.
+
+### 3. Échec sur `clean_types` (`test_conversion_object_vers_numeric`)
+*   **Symptôme :** Assertion échouée : `assert df['col'].dtype in [np.float64, np.int64]` retourne `Int64Dtype()`.
+*   **Analyse technique :** Pandas 2.x utilise par défaut le type `Int64` (int nullable avec support des NaN) plutôt que le standard NumPy `np.int64`. Les données sont correctes, mais la vérification du test est trop rigide.
+*   **Correction requise :** Utiliser `pd.api.types.is_integer_dtype()` ou vérifier que le type appartient aux types pandas (`Int64`, `Float64`) et non uniquement à NumPy.
+
+### Résultat final de l'étape
+Le pipeline global (`test_pipeline_complet`) valide que si l'orchestrateur fait bien son travail, les données finales sont propres. Cependant, pour garantir la robustesse du moteur (`cleaner_engine`), il faut corriger ces 3 points dans les tests unitaires.
+
+
+
+
+
+
+

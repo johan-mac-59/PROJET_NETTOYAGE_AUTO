@@ -168,8 +168,16 @@ def clean_outliers(df: pd.DataFrame) -> Tuple[pd.DataFrame, dict]:
 
     return df, corrections
 
-def run_all_cleaning_steps(df: pd.DataFrame) -> Tuple[pd.DataFrame, dict]:
-    """Ordonne l'application des différentes étapes de nettoyage."""
+def run_all_cleaning_steps(df: pd.DataFrame, max_iterations: int = 5) -> Tuple[pd.DataFrame, dict]:
+    """
+    Applique les nettoyages de manière itérative et ordonnée.
+    
+    Garde-fous :
+    - Max iterations pour éviter les boucles infinies.
+    - Cumul des stats (on ne remplace pas le dict par dessus).
+    - Ordre stratégique : Types d'abord, puis stats/doublons.
+    """
+    # Initialisation des accumulateurs
     stats = {
         'empty_cols_dropped': 0,
         'whitespace_cleaned': 0,
@@ -179,12 +187,53 @@ def run_all_cleaning_steps(df: pd.DataFrame) -> Tuple[pd.DataFrame, dict]:
         'outliers_corrected': {}
     }
 
-    # À chaque étape, on met à jour le df avec le résultat de la fonction précédente
-    df_cleaned, stats['empty_cols_dropped'] = clean_empty_columns(df)
-    df_cleaned, stats['whitespace_cleaned'] = clean_whitespace(df_cleaned)
-    df_cleaned, stats['types_converted'] = clean_types(df_cleaned) 
-    df_cleaned, stats['duplicates_removed'] = clean_duplicates(df_cleaned) 
-    df_cleaned, stats['missing_filled'] = clean_missing_values(df_cleaned)
-    df_cleaned, stats['outliers_corrected'] = clean_outliers(df_cleaned)
+    current_df = df.copy()
     
-    return df_cleaned, stats
+    # On boucle tant que des changements sont détectés
+    for i in range(max_iterations):
+        any_change = False
+
+        # 1. Nettoyage structurel (toujours en premier)
+        if 'empty_cols_dropped' not in stats or stats['empty_cols_dropped'] == 0:
+            current_df, n_dropped = clean_empty_columns(current_df)
+            if n_dropped > 0:
+                stats['empty_cols_dropped'] += n_dropped
+                any_change = True
+
+        # 2. Nettoyage forme (espaces)
+        current_df, n_spaces = clean_whitespace(current_df)
+        if n_spaces > 0:
+            stats['whitespace_cleaned'] += n_spaces
+            any_change = True
+
+        # 3. Conversion de types (CRITIQUE : à faire AVANT les calculs numériques)
+        current_df, conversions = clean_types(current_df)
+        if conversions:
+            # On fusionne avec les dict existants
+            stats['types_converted'].update(conversions)
+            any_change = True
+
+        # 4. Doublons (à faire avant IQR/Median pour ne pas fausser les stats)
+        current_df, n_dups = clean_duplicates(current_df)
+        if n_dups > 0:
+            stats['duplicates_removed'] += n_dups
+            any_change = True
+
+        # 5. Missing Values (nécessite des types corrects)
+        current_df, fillings = clean_missing_values(current_df)
+        if fillings:
+            stats['missing_filled'].update(fillings)
+            any_change = True
+
+        # 6. Outliers (nécessite des types numériques et pas de doublons) 
+        current_df, outliers = clean_outliers(current_df)
+        if outliers:
+            for col, count in outliers.items():
+                stats['outliers_corrected'][col] = stats['outliers_corrected'].get(col, 0) + count
+            any_change = True
+
+        # Si rien n'a changé lors de ce tour complet, on arrête (convergence)
+        if not any_change:
+            break
+
+    return current_df, stats
