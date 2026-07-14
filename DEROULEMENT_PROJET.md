@@ -456,7 +456,25 @@ En lançant les tests unitaires (`pytest`) pour valider l'architecture modulaire
 ### Résultat final de l'étape
 Le pipeline global (`test_pipeline_complet`) valide que si l'orchestrateur fait bien son travail, les données finales sont propres. Cependant, pour garantir la robustesse du moteur (`cleaner_engine`), il faut corriger ces 3 points dans les tests unitaires.
 
+## Étape 12 : Correction des Tests Unitaires et Résolution des "Fausses" Négatives 🐛🛠️
 
+Dans cette étape critique, nous avons identifié pourquoi certains tests échouaient malgré un pipeline fonctionnel en production. Les erreurs provenaient de la rigidité des fixtures de test et du comportement mathématique de pandas sur de petits échantillons.
+
+### 1. Analyse de l'échec `test_doublons_exact`
+*   **Symptôme :** Le test échouait car le DataFrame retenu contenait toujours 4 lignes.
+*   **Analyse technique :** Le DataFrame initial (`dirty_df`) contenait des lignes avec le même ID (2) mais des noms différents ("Bob" et "Alice"). `drop_duplicates()` de pandas considère que ce sont deux lignes *distinctes* car elles ne sont pas identiques caractère pour caractère.
+*   **Correctif appliqué :** 
+    1. Nous avons créé une fixture dédiée (`dirty_df_with_exact_doublons`) contenant des répétitions parfaites de toutes les colonnes.
+    2. Cette approche garantit que le test valide bien la logique de suppression de doublons sans être faussé par d'autres données.
+
+### 2. Analyse de l'échec `test_correction_iqr`
+*   **Symptôme :** La valeur -999 n'était pas supprimée/correctement traitée.
+*   **Analyse technique :** 
+    *   L'algorithme IQR nécessite des colonnes de type numérique pur (`np.number`). Si la présence de NaN ou d'espaces laisse pandas interpréter la colonne comme `object` (string), le calcul `quantile()` échoue silencieusement ou renvoie des valeurs par défaut incohérentes.
+    *   De plus, sur un échantillon minuscule (ex: `[25, NaN, 35]`), l'IQR est très faible, rendant la borne inférieure (`Q1 - 1.5*IQR`) autour de 20. La valeur -999 étant bien en dessous, elle est détectée comme aberrante.
+*   **Correctif appliqué :** 
+    *   Ajout d'une étape explicite `pd.to_numeric(errors='coerce')` avant le calcul des bornes dans `clean_outliers`.
+    *   Utilisation de `.fillna(median())` sur une copie temporaire du DataFrame pour calculer les quartiles sans perdre l'information des indices originaux.
 
 
 

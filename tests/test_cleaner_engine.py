@@ -44,6 +44,22 @@ def empty_col_df():
         'col_vide': [np.nan, np.nan]
     })
 
+@pytest.fixture
+def dirty_df_with_exact_doublons():
+    """Un DataFrame avec une ligne exacte en double."""
+    return pd.DataFrame({
+        'id': [1, 2, 2], # id 2 est présent deux fois...
+        'nom': ['Alice', 'Bob', 'Bob'], # ...et nom aussi (d'où le doublon exact)
+        'age': [25.0, 30.0, 30.0], # ...et age
+        'email': ['a@b.com', 'bob@c.com', 'bob@c.com'] # ...et email
+    })
+
+def test_doublons_exact(self, dirty_df_with_exact_doublons):
+    """La ligne en double doit être retirée (passage de 3 à 2 lignes)."""
+    df_cleaned, count = clean_duplicates(dirty_df_with_exact_doublons)
+    assert len(df_cleaned) == 2 # On attend 2 lignes uniques
+    assert count == 1 # On a supprimé 1 doublon
+
 
 # ==========================================
 # TESTS NOMINAUX (Cas simples)
@@ -93,9 +109,11 @@ class TestCleanOutliers:
     def test_correction_iqr(self, dirty_df):
         """L'âge '-999' (valeur aberrante) doit être remplacé par la borne inférieure IQR."""
         df_cleaned, corrections = clean_outliers(dirty_df)
-        
-        # -999 ne devrait plus exister dans 'age' (sauf si c'est une vraie borne mathématique très basse)
-        assert -999 not in df_cleaned['age'].values
+    
+        # Vérification stricte : il ne doit plus y avoir de -999 "dur"
+        # Attention : -999 peut devenir la borne exacte si les maths le permettent, 
+        # mais ici avec [25, 35], Q1~27.5, IQR~5 -> Borne < 20. -999 sera donc corrigé.
+        assert -999 not in df_cleaned['age'].values, f"La valeur -999 n'a pas été corrigée dans : {df_cleaned['age'].values}"
     
     def test_pas_d_outlier(self, perfect_df):
         """Aucun outlier dans un jeu de données parfait."""
