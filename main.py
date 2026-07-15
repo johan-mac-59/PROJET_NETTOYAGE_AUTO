@@ -7,8 +7,8 @@ from src.file_loader import load_file
 
 def main():
     # Configuration des chemins
-    input_file = "data/raw/reservation_rivage_brut.csv"
-    output_file = "data/processed/reservation_nettoye.csv"
+    input_file = "data/raw/ai_student_impact_dataset.csv"
+    output_file = "data/processed/ai_student_impact_dataset_nettoye.csv"
 
     # 1. Chargement (Délègue la logique complexe de détection à file_loader)
     try:
@@ -38,3 +38,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

@@ -7,8 +7,8 @@ from src.report_generator import generate_and_print_report, CleanReportGenerator
     
 def main():
     # 1. Configuration des chemins (utilisons pathlib pour la robustesse)
-    input_file = Path("data/raw/reservation_rivage_brut.csv")
-    output_file = Path("data/processed/reservation_nettoye.csv")
+    input_file = Path("data/raw/ai_student_impact_dataset.csv")
+    output_file = Path("data/processed/ai_student_impact_dataset_nettoye.csv")
 
     if not input_file.exists():
         print(f"❌ Erreur: Le fichier {input_file} n'existe pas.")
