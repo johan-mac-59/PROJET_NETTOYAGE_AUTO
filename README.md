@@ -52,7 +52,10 @@ mon_projet_nettoyage/
 ├── tests/                      # Tests unitaires pour garantir la fiabilité
 │   ├── test_cleaner_engine.py
 │   └── test_file_loader.py
+├── améliorations_futures.md    # Planification des évolutions du projet
+├── DEROULEMENT_PROJET.md       # Journal de bord technique et historique des développements
 ├── main.py                     # Point d'entrée principal de l'application
 ├── pyproject.toml              # Configuration du projet et des dépendances (uv)
+├── README.md                   # Documentation principale et présentation du projet
 └── uv.lock                     # Verrouillage précis des versions des dépendances
 ```
