@@ -29,7 +29,7 @@ def load_file(file_path: str) -> pd.DataFrame:
             return _load_csv(file_path)
         elif ext in ['.xlsx', '.xls']:
             return _load_excel(file_path)
-        # On peut ajouter plus tard :
+        # implémentation prévue pour le JSON :
         # elif ext == '.json':
         #     return pd.read_json(file_path)
         else:

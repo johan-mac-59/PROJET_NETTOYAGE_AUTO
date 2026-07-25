@@ -25,6 +25,9 @@ class CleanReportGenerator:
     def get_summary(self) -> str:
         """Retourne le résumé textuel du rapport."""
         
+        if self.final_shape is None:
+            return "⚠️ Rapport non finalisé. Veuillez appeler update_final_state() d'abord."
+        
         # 1. Métriques globales
         lines = []
         lines.append("=" * 60)
@@ -97,8 +100,4 @@ def generate_and_print_report(initial_df: pd.DataFrame, stats: Dict, final_df: p
     reporter.update_final_state(final_df)
     print(reporter.get_summary())
     
-    # On peut aussi imprimer le tableau des changements de type si voulu
-    # detailed = reporter.get_detailed_table(final_df)
-    # if not detailed.empty:
-    #     print("\nDétail des conversions de types:")
-    #     print(detailed)
+

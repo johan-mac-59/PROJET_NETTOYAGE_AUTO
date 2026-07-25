@@ -133,7 +133,7 @@ def clean_missing_values(df: pd.DataFrame) -> Tuple[pd.DataFrame, dict]:
 
     return df_cleaned, actions
 
-def clean_outliers(df: pd.DataFrame) -> Tuple[pd.DataFrame, dict]:
+def clip_outliers(df: pd.DataFrame) -> Tuple[pd.DataFrame, dict]:
     """Corrige les valeurs aberrantes avec la méthode IQR (Cliping)."""
     if df.empty:
         return df.copy(), {}
@@ -234,7 +234,7 @@ def run_all_cleaning_steps(df: pd.DataFrame, max_iterations: int = 5) -> Tuple[p
             any_change = True
 
         # 6. Outliers IQR (En dernier, sur données numérées et propres) 
-        current_df, outliers = clean_outliers(current_df)
+        current_df, outliers = clip_outliers(current_df)
         if outliers:
             for col, count in outliers.items():
                 stats['outliers_corrected'][col] = stats['outliers_corrected'].get(col, 0) + count
