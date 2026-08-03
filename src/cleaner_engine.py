@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from typing import Tuple, List
+from typing import Tuple
 
 def clean_empty_columns(df: pd.DataFrame) -> Tuple[pd.DataFrame, int]:
     """Supprime les colonnes avec >95% de valeurs manquantes."""

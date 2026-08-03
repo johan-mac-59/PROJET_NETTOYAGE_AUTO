@@ -1,7 +1,5 @@
 import pandas as pd
-import os
-from typing import Union
-    
+import os    
 
 def load_file(file_path: str) -> pd.DataFrame:
     """Charge un fichier dans un DataFrame selon son extension.

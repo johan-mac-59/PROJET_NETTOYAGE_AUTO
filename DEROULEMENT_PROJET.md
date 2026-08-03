@@ -502,3 +502,54 @@ Le projet est passé d'un script de nettoyage expérimentale à un **systle de p
 
 
 
+---
+
+## Étape 14 : Développement du module de Profilage (`data_profiler`) 📊
+
+Dans cette étape, nous avons ajouté une brique essentielle au pipeline : **la phase d'inspection**. Avant même de penser à nettoyer, il est impératif de comprendre la structure et la qualité des données brutes.
+
+### 1. Objectif du module `DataProfiler`
+Créer un outil autonome (`src/data_profiler.py`) capable de produire un rapport structuré (format Markdown) sans dépendre de lourdes librairies tierces comme `ydata-profiling`. 
+
+**Pourquoi "from scratch" ?**
+*   **Légèreté :** Aucune dépendance externe complexe (matplotlib, scipy...) à gérer.
+*   **Transparence :** Comprendre les statistiques de base (IQR, médiane, top-N) est une compétence clé d'analyste.
+*   **Intégration facile :** Le rapport `.md` peut être consulté directement sur GitHub ou GitLab pour un partage rapide des findings.
+
+### 2. Fonctionnalités implémentées
+Le moteur `DataProfiler` analyse le DataFrame et génère les sections suivantes :
+
+1.  **🧱 Vue d'ensemble** : Dimensions (Lignes/Colonnes) et poids estimé.
+2.  **🏷️ Types de colonnes** : Identification précise des types (`Int64`, `Float64`, `object`...) pour anticiper les conversions nécessaires.
+3.  **⚠️ Matrice de Qualité (NaN)** : 
+    *   Calcul du compte et du pourcentage de valeurs manquantes par colonne.
+    *   Focalisation sur les colonnes critiques (> 0%).
+4.  **📈 Statistiques Numériques** :
+    *   Utilisation de `describe()` pour les min, max, moyennes et percentiles (Q1, Q3).
+    *   Cela permet d'identifier visuellement les outliers potentiels avant même le nettoyage.
+5.  **🔤 Top Catégorielles** :
+    *   Pour les colonnes texte/categ, on affiche le "Top 3" des valeurs les plus fréquentes (au lieu de tout lister, ce qui serait illisible).
+6.  **👀 Aperçu Brut** : Les 5 premières lignes formatées en tableau Markdown.
+
+### 3. Tests Pytest
+3 ok et 13 erreurs, essentiellement dues à un module absente mais nécessaire : Tabulate
+après installation de ce module, 5 KO sur 16 : un même problème car je faisais une opération sur un Tuple
+après correction de cette anomalie, une nouvelle mais unique erreur est apparue suite un correctif dans le fichier de tests
+après mise à jour du fichier de tests par l'agent testeur, tous les tests sont OK
+je corrige néanmoins les alertes de Pandas
+
+### 4. Intégration au Pipeline
+Le flux de travail devient maintenant :
+1.  **Chargement** (`file_loader`)
+2.  **Profiling** (`data_profiler`) ➡️ *Nouveau* : Génère `data/processed/report_profile.md`
+3.  **Nettoyage** (`cleaner_engine`)
+4.  **Sauvegarde & Rapport Final** (`cleaner_logger`)
+
+**Défis techniques résolus aujourd'hui :**
+*   **Gestion des chemins relatifs :** Utilisation de `Path(__file__).parent.parent` pour que le script fonctionne depuis n'importe quel répertoire (racine ou sous-dossier `src/`).
+*   **Correction des imports dynamiques :** Ajout de `sys.path.insert(0, ...)` dans le fichier orchestrator pour éviter les `ModuleNotFoundError` quand le script est lancé depuis l'intérieur d'un package.
+
+### 4. Préparer le terrain pour les futures alertes
+La classe `DataProfiler` inclut désormais une méthode预留 (`detect_quality_issues`). Cette structure est prête à accueillir nos prochaines règles métier (ex: "Si une colonne 'Age' a des valeurs < 0, alerter l'utilisateur").
+
+---

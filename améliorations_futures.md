@@ -9,5 +9,6 @@
 ## 📊 Améliorations Fonctionnelles
 - **Support JSON** : Implémentation du chargement des fichiers .json via l'intégration de pd.read_json() dans le module file_loader.
 - **enrichir le rapport** : génération d'un vrai fichier de rapport indiquant tous les changements effectués
+- **améliorer la détection des dates** : être plus explicite sur le format 
 
 
