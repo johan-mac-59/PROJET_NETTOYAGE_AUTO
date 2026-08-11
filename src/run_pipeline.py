@@ -10,8 +10,8 @@ if str(current_dir) not in sys.path:
 # Import des modules du projet
 from src.file_loader import load_file
 from src.cleaner_engine import run_all_cleaning_steps
-from src.data_profiler import DataProfiler  # Nouvel outil intégré
-from cleaner_logger import generate_and_print_report
+from src.data_profiler import DataProfiler 
+from src.cleaner_logger import generate_and_print_report
 
 def main():
     # 1. Configuration (Pathlib pour les chemins robustes sous Windows)

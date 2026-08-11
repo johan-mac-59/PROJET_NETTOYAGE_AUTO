@@ -1,11 +1,13 @@
 from pathlib import Path
 from datetime import datetime
+import logging
 
 # Import des modules du projet
 from src.file_loader import load_file
 from src.cleaner_engine import run_all_cleaning_steps
-from src.data_profiler import DataProfiler  # Nouvel outil intégré
-from cleaner_logger import generate_and_print_report
+from src.data_profiler import DataProfiler
+from src.cleaner_logger import generate_and_print_report
+from src.cleaner_reporter import CleanerReporter, generate_enhanced_report
 
 def main():
     # 1. Configuration (Pathlib pour les chemins robustes sous Windows)
@@ -64,6 +66,17 @@ def main():
         generate_and_print_report(initial_df, stats, cleaned_df)
     except Exception as e:
         print(f"⚠️ Erreur lors de la génération du rapport console : {e}")
+
+    # 7. Génération du rapport Markdown final avec CleanerReporter
+    try:
+        # Création d'un logger simulé pour le reporter (ou utilisation du logger existant)
+        logger = logging.getLogger(__name__)
+        
+        # Génération du rapport final avec les statistiques
+        generate_enhanced_report(profiler, logger, reports_dir, input_file, stats)
+        
+    except Exception as e:
+        print(f"⚠️ Erreur lors de la génération du rapport final : {e}")
 
 if __name__ == "__main__":
     main()

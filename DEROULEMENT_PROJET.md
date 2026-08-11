@@ -603,3 +603,40 @@ La création de ce module a nécessité l'application de concepts avancés pour 
 * **Python Avancé** : Manipulation de structures de données complexes et utilisation de `pathlib` pour une gestion moderne des chemins de fichiers.
 * **Sécurité des données** : Mise en place d'un mécanisme de nettoyage (sanitization) pour prévenir la corruption du format de sortie.
 * **Design Pattern "Reporter"** : Séparation stricte entre la logique métier (Engine) et la couche de présentation (Reporter), respectant le principe de responsabilité unique (SRP).
+
+---
+
+## Étape 17 : Intégration du module de reporting au pipeline global
+
+Cette étape a consisté à orchestrer les modules existants (`file_loader`, `data_profiler`, `cleaner_engine` et `cleaner_reporter`) pour former un pipeline de données complet et automatisé.
+
+### 1. Problématique : L'accès aux données éphémères
+Le moteur de nettoyage (`cleaner_engine`) génère des statistiques cruciales (nombre de doublons supprimés, colonnes transformées, etc.) sous forme de dictionnaires temporaires durant l'exécution du script `main.py`. Le module `cleaner_reporter`, quant à lui, est conçu pour lire des objets persistants (`DataProfiler` et `Logger`). 
+
+**Le défi :** Comment transmettre les statistiques de nettoyage (volatiles) au moteur de rapportage sans casser la séparation des responsabilités entre les modules ?
+
+### 2. Méthode de résolution : Le pattern "Adapter"
+Pour résoudre ce problème d'interface, une fonction utilitaire `generate_enhanced_report` a été implémentée au niveau du module `src/cleaner_reporter.py`. 
+
+**Fonctionnement technique :**
+* **Rôle d'adaptateur :** Cette fonction agit comme une couche intermédiaire qui prend en entrée les objets de structure (le profiler et le logger) ainsi que le dictionnaire de statistiques brutes (`stats`) issu du nettoyage.
+* **Encapsulation :** Elle gère l'instanciation du `CleanerReporter` et l'injection des paramètres complexes, évitant ainsi de polluer la logique métier de `main.py` avec des détails d'implémentation liés au reporting.
+* **Standardisation du rendu :** Elle assure que les statistiques de transformation (ex: nombre de lignes supprimées) sont formatées selon le même standard Markdown que les résultats du profilage initial, garantant l'homogénéité des rapports produits.
+
+### 3. Défis d'orchestration et robustesse
+L'intégration a nécessité la résolution de deux points critiques :
+* **Gestion de la persistance des chemins :** Utilisation de `pathlib` pour garantir que le pipeline puisse localiser les dossiers `data/reports` et `data/processed` quel que soit l'endroit d'où le script est lancé (racine ou dossier `src/`).
+* **Continuité du flux (Pipeline Resilience) :** Mise en place de blocs `try/except` spécifiques autour de la génération du rapport final. L'objectif est de garantir que si une erreur survient lors de la création du document Markdown (ex: erreur d'écriture), le processus de sauvegarde des données nettoyées (`dataset_nettoye.csv`) ne soit pas interrompu.
+
+### 4. État de l'architecture finale
+Le pipeline suit désormais un flux de données unidirectionnel et structuré :
+`Fichier Brut` $\rightarrow$ `Détection (Encodage/Séparateur)` $\rightarrow$ `Profilage Initial` $\rightarrow$ `Nettoyage (Transformations)` $\rightarrow$ `Sauvegarde du Dataset` $\rightarrow$ `Génération du Rapport d'Audit`.
+
+---
+
+
+## Etape 18 : Tests unitaires Pytest de tous les modules modifiés
+
+
+
+*Projet en cours de développement*

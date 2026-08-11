@@ -14,6 +14,7 @@ Le projet est conçu comme une suite de modules spécialisés, orchestrés pour 
 * **`data_profiler`** : **Inspection & Diagnostic.** Génère un rapport Markdown détaillé des données brutes (types, valeurs manquantes, statistiques clés, aperçu) avant le nettoyage. Idéal pour un audit rapide de la qualité des données.
 * **`cleaner_engine`** : **Moteur de transformation.** Automatise les tâches critiques du nettoyage : suppression des doublons, gestion intelligente des valeurs manquantes et normalisation des types de données.
 * **`cleaner_logger`** : **Audit & Traçabilité.** Génère un rapport détaillé après chaque passage, permettant de visualiser l'impact du nettoyage (nombre de lignes traitées, statistiques post-nettoyage).
+* **`cleaner_reporter`** : **Audit & Reporting.** Transforme les logs et les profils en un rapport Markdown structuré et pérenne. Il permet de comparer l'état "Avant" vs "Après" nettoyage (KPIs) et offre une vue d'audit sécurisée (protection contre les caractères spéciaux).
 * **`run_pipeline`** : **Orchestration.** Pilote l'exécution complète du flux, du chargement des données brutes jusqu'à la production des fichiers nettoyés.
 
 ---
@@ -53,11 +54,14 @@ mon_projet_nettoyage/
 │   ├── __init__.py
 │   ├── cleaner_engine.py       # Moteur principal de nettoyage des données
 │   ├── clearner_logger.py      # Génération de rapports après traitement
+│   ├── clearner_reporter.py    # Génération du fichier markdown de rapports
 │   ├── data_profiler.py        # Module d'inspection et génération de rapports Markdown
 │   ├── file_loader.py          # Chargement intelligent (détection auto format/encodage)
 │   └── run_pipeline.py         # Orchestration du flux de travail complet
 ├── tests/                      # Tests unitaires pour garantir la fiabilité
 │   ├── test_cleaner_engine.py
+│   ├── test_cleaner_logger.py
+│   ├── test_cleaner_reporter.py
 │   ├── test_data_profiler.py
 │   └── test_file_loader.py
 ├── améliorations_futures.md    # Planification des évolutions du projet

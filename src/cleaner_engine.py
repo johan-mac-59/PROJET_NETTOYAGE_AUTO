@@ -69,8 +69,12 @@ def clean_types(df: pd.DataFrame) -> Tuple[pd.DataFrame, dict]:
         if numeric_data.notna().sum() / len(numeric_data) > 0.9: 
             non_na_values = numeric_data.dropna()
             
-            # Vérification robuste pour les entiers
-            is_likely_int = (len(non_na_values) > 0) and ((non_na_values == non_na_values.astype(int)) if len(non_na_values) else False).all()
+            # Vérification robuste pour les entiers (corrigé)
+            is_likely_int = (
+                len(non_na_values) > 0 and 
+                (non_na_values == non_na_values.astype(int)).all() and
+                not non_na_values.isna().any()
+            )
             
             if is_likely_int:
                 # On passe en numpy int64 standard pour correspondre aux attentes des tests classiques
@@ -81,14 +85,27 @@ def clean_types(df: pd.DataFrame) -> Tuple[pd.DataFrame, dict]:
                 df_cleaned[col] = numeric_data.astype(np.float64)
                 conversions[col] = 'object -> float'
 
-        # --- Tentative Date ---
+        # --- Tentative Date (corrigé pour éviter les avertissements) ---
         if col not in conversions:
-             date_data = pd.to_datetime(df_cleaned[col], errors='coerce')
-             valid_date_rate = date_data.notna().sum() / len(date_data)
-             
-             if valid_date_rate > 0.8:
-                 df_cleaned[col] = date_data
-                 conversions[col] = 'object -> datetime'
+            try:
+                # Spécifier explicitement le format pour éviter les avertissements
+                date_data = pd.to_datetime(df_cleaned[col], format='%d/%m/%Y', errors='coerce')
+                valid_date_rate = date_data.notna().sum() / len(date_data)
+                 
+                if valid_date_rate > 0.8:
+                    df_cleaned[col] = date_data
+                    conversions[col] = 'object -> datetime'
+            except (ValueError, TypeError):
+                # Si le format échoue, on passe à l'approche par défaut
+                try:
+                    date_data = pd.to_datetime(df_cleaned[col], errors='coerce')
+                    valid_date_rate = date_data.notna().sum() / len(date_data)
+                     
+                    if valid_date_rate > 0.8:
+                        df_cleaned[col] = date_data
+                        conversions[col] = 'object -> datetime'
+                except Exception:
+                    continue
 
     return df_cleaned, conversions
 

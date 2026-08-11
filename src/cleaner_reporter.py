@@ -1,4 +1,4 @@
-# Amélioration du fichier cleaner_reporter.py
+# -*- coding: utf-8 -*-
 from pathlib import Path
 from datetime import datetime
 import logging
@@ -12,113 +12,89 @@ class CleanerReporter:
         self.report_title = "Rapport de Nettoyage des Données"
     
     def _get_header(self) -> str:
-        """Crée l'en-tête Markdown avec la date et le nom du fichier."""
+        """Crée l'en-tête Markdown avec la date."""
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        try:
-            file_info = self.profiler.get_file_info()
-            # Validation que file_info est bien un dictionnaire
-            if not isinstance(file_info, dict):
-                file_info = {'path': 'Inconnu'}
-        except (AttributeError, TypeError) as e:
-            self.logger.warning(f"Erreur lors de la récupération des informations du fichier : {e}")
-            file_info = {'path': 'Inconnu'}
-        
         return f"# {self.report_title}\n\n" \
                f"**Date de génération :** {timestamp}\n\n" \
-               f"**Fichier source :** `{file_info['path']}`\n\n"
+               f"**Fichier source :** `Inconnu`\n\n"
     
     def _get_summary_section(self) -> str:
         """Résumé des métriques globales (Avant/Après)."""
-        if not self.profiler.has_profile():
-            return "## Résumé Global\n\n*Aucun profilage disponible.*\n\n"
+        try:
+            # On récupère les résultats de l'analyse déjà effectuée
+            profile_results = self.profiler.profile_results
+            
+            if not profile_results:
+                return "## Résumé Global\n\n*Aucun profilage disponible.*\n\n"
+            
+            # Extraction des métriques disponibles
+            shape = profile_results.get('shape', {})
+            nb_lignes_avant = shape.get('nb_lignes', 'N/A')
+            nb_colonnes = shape.get('nb_colonnes', 'N/A')
+            nb_doublons = profile_results.get('nb_doublons', 0)
+            
+            # Pour les valeurs manquantes
+            missing_values = profile_results.get('missing_values', {})
+            total_missing = sum(missing_values.get('count', {}).values()) if missing_values else 0
+            
+            return f"""## 1. Résumé des Métriques
+| Statistique | Valeur |
+| :--- | :---: |
+| Lignes totales (avant) | {nb_lignes_avant} |
+| Colonnes totales | {nb_colonnes} |
+| Doublons trouvés | {nb_doublons} |
+| Valeurs manquantes totales | {total_missing} |
+"""
+        except Exception as e:
+            return f"## Résumé des Métriques\n\n*Erreur lors de la récupération des métriques : {str(e)}*\n\n"
+    
+    def _get_operations_table(self, stats) -> str:
+        """Transforme les statistiques de nettoyage en tableau Markdown."""
+        if not stats:
+            return "## 2. Détail des Opérations\n\n*Aucune opération enregistrée.*\n\n"
         
         try:
-            profile = self.profiler.get_profile()
-            # Validation du format de profile
-            if not isinstance(profile, dict):
-                return "## Résumé des Métriques\n\n*Erreur : Format de profil non valide.*\n\n"
+            # Construction du tableau avec les informations de nettoyage
+            table_content = "## 2. Détail des Opérations\n\n"
+            table_content += "| Opération | Nombre | Détails |\n"
+            table_content += "| :--- | :---: | :--- |\n"
+            
+            # Ajout des statistiques de nettoyage
+            if 'empty_cols_dropped' in stats and stats['empty_cols_dropped'] > 0:
+                table_content += f"| Colonnes vides supprimées | {stats['empty_cols_dropped']} | - |\n"
+            
+            if 'whitespace_cleaned' in stats and stats['whitespace_cleaned'] > 0:
+                table_content += f"| Espaces nettoyés | {stats['whitespace_cleaned']} | - |\n"
                 
-            # Initialisation correcte des métriques avec des valeurs par défaut
-            metrics = {
-                'rows_after': 0,
-                'missing_after': 0,
-                'duplicates_removed': 0
-            }
-        except (AttributeError, TypeError) as e:
-            self.logger.error(f"Erreur lors de la récupération des métriques : {str(e)}")
-            return f"## Résumé des Métriques\n\n*Erreur lors de la récupération des métriques : {str(e)}*\n\n"
-        
-        # Validation et conversion des données
-        def safe_get_value(data, key, default='N/A'):
-            value = data.get(key, default)
-            if value is None:
-                return 'N/A'
-            elif isinstance(value, (int, float)) and not isinstance(value, bool):
-                # Pour les nombres, on convertit en chaîne
-                if isinstance(value, float) and value.is_integer():
-                    return str(int(value))
-                return str(value)
-            elif isinstance(value, bool):
-                return 'Oui' if value else 'Non'
-            elif isinstance(value, str):
-                return value
+            if 'duplicates_removed' in stats and stats['duplicates_removed'] > 0:
+                table_content += f"| Doublons supprimés | {stats['duplicates_removed']} | - |\n"
+                
+            if 'types_converted' in stats and stats['types_converted']:
+                table_content += f"| Conversions de types | {len(stats['types_converted'])} | {', '.join(list(stats['types_converted'].keys()))} |\n"
+                
+            if 'missing_filled' in stats and stats['missing_filled']:
+                table_content += f"| Valeurs manquantes comblées | {len(stats['missing_filled'])} | {', '.join(list(stats['missing_filled'].keys()))} |\n"
+                
+            if 'outliers_corrected' in stats and stats['outliers_corrected']:
+                outliers_info = []
+                for col, count in stats['outliers_corrected'].items():
+                    outliers_info.append(f"{col}({count})")
+                table_content += f"| Valeurs aberrantes corrigées | {len(stats['outliers_corrected'])} | {', '.join(outliers_info)} |\n"
+                
+            if not table_content.endswith("| Opération | Nombre | Détails |\n| :--- | :---: | :--- |\n"):
+                return table_content
             else:
-                return str(value)
-        
-        # Utilisation correcte des données
-        total_rows_before = safe_get_value(profile, 'total_rows', 0)
-        missing_values_before = safe_get_value(profile, 'missing_values', 0)
-        rows_after = safe_get_value(metrics, 'rows_after', 0)
-        missing_after = safe_get_value(metrics, 'missing_after', 0)
-        duplicates_removed = safe_get_value(metrics, 'duplicates_removed', 0)
-        
-        return f"""## 1. Résumé des Métriques
-| Statistique | Avant Nettoyage | Après Nettoyage |
-| :--- | :---: | :---: |
-| Lignes totales | {total_rows_before} | {rows_after} |
-| Valeurs manquantes | {missing_values_before} | {missing_after} |
-| Doublons trouvés | - | {duplicates_removed} |
-"""
-    
-    def _get_operations_table(self) -> str:
-        """Transforme le journal des opérations en tableau Markdown."""
-        if not hasattr(self.logger, 'operations_log'):
-            return "## Opérations de Nettoyage\n\n*Erreur : Logger invalide.*\n\n"
-            
-        operations_log = getattr(self.logger, 'operations_log', [])
-        
-        if not isinstance(operations_log, list) or len(operations_log) == 0:
-            return "## Opérations de Nettoyage\n\n*Aucune opération enregistrée.*\n\n"
-        
-        headers = "| Colonne | Opération | Détails | Résultat |\n| :--- | :--- | :--- | :--- |"
-        rows = ""
-        
-        for op in operations_log:
-            # Validation du format des opérations
-            if not isinstance(op, dict):
-                continue
+                return "## 2. Détail des Opérations\n\n*Aucune opération enregistrée.*\n\n"
                 
-            column = op.get('column', 'Inconnu')
-            action = op.get('action', 'Inconnue')
-            details = op.get('details', 'Aucun détail')
-            status = op.get('status', 'Inconnu')
-            
-            # Nettoyage des valeurs pour éviter les injections MD
-            column = str(column).replace('|', '\\|').replace('*', '\\*')
-            action = str(action).replace('|', '\\|').replace('*', '\\*')
-            details = str(details).replace('|', '\\|').replace('*', '\\*')
-            status = str(status).replace('|', '\\|').replace('*', '\\*')
-            
-            rows += f"| `{column}` | {action} | {details} | {status} |\n"
-        
-        return f"## 2. Détail des Opérations\n\n{headers}{rows}\n\n"
+        except Exception as e:
+            return f"## 2. Détail des Opérations\n\n*Erreur lors de la génération du tableau : {str(e)}*\n\n"
     
-    def generate(self, output_path: str = "cleaning_report.md") -> str:
-        """Génère le fichier Markdown complet."""
+    def generate_with_stats(self, output_path: str, stats: dict = None) -> str:
+        """Génère le fichier Markdown complet avec les statistiques."""
         try:
             content = (self._get_header() + 
                       self._get_summary_section() + 
-                      self._get_operations_table())
+                      self._get_operations_table(stats))
             
             path_obj = Path(output_path)
             # Vérification du répertoire parent
@@ -130,3 +106,23 @@ class CleanerReporter:
         except Exception as e:
             self.logger.error(f"Erreur lors de la génération du rapport : {str(e)}")
             raise RuntimeError(f"Erreur lors de la génération du rapport : {str(e)}")
+    
+    def generate(self, output_path: str = "cleaning_report.md") -> str:
+        """Génère le fichier Markdown complet (ancienne version)."""
+        return self.generate_with_stats(output_path, {})
+
+def generate_enhanced_report(profiler, logger, reports_dir, input_file, stats):
+    """Fonction utilitaire pour générer le rapport amélioré."""
+    try:
+        # Initialisation du reporter
+        reporter = CleanerReporter(profiler, logger)
+        
+        # Nom du rapport final avec timestamp
+        final_report_filename = reports_dir / f"cleaning_report_{input_file.stem}_{datetime.now().strftime('%Y%m%d_%H%M')}.md"
+        
+        # Génération du rapport final avec les stats
+        report_path = reporter.generate_with_stats(str(final_report_filename), stats)
+        print(f"📝 Rapport de nettoyage généré : {report_path}")
+        
+    except Exception as e:
+        print(f"⚠️ Erreur lors de la génération du rapport final : {e}")
