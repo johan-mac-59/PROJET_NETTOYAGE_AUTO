@@ -15,7 +15,7 @@
 
 ### Problématiques identifiées dans les CSV bruts :
 1. **Encodage** : UTF-8, Latin1, CP1252... (caractères spéciaux mal affichés)
-2. **Séparateur** : Point-virgule (;), virgule (,), tabulation (\t), pipe (|)...
+2. **Séparateur** : Point-virgule (';'), virgule (','), tabulation ('\t'), pipe ('|')...
 3. **Valeurs manquantes** : NaN, vides, "NA"...
 4. **Doubons exacts** : lignes identiques
 5. **Types incohérents** : dates/numéros stockés en texte, espaces superflus...
@@ -32,7 +32,7 @@
 
 ## Étape 2 : Conception du cleaner automatique
 
-### Architecture choisie
+### Architecture choisie initialement
 
 ```
 cleaner_auto.py
@@ -263,7 +263,7 @@ python src/main.py
 
 ---
 
-## Étape 8 : Optimisations récentes et corrections critiques (En cours)
+## Étape 8 : Optimisations récentes et corrections critiques
 
 Dans les dernières itérations, nous avons corrigé des bugs structurels et optimisé l'ordre logique des opérations pour garantir la fiabilité du nettoyage.
 
@@ -553,3 +553,53 @@ Le flux de travail devient maintenant :
 La classe `DataProfiler` inclut désormais une méthode预留 (`detect_quality_issues`). Cette structure est prête à accueillir nos prochaines règles métier (ex: "Si une colonne 'Age' a des valeurs < 0, alerter l'utilisateur").
 
 ---
+
+## Étape 15 : Renforcement de la Robustesse et Fiabilisation par les Tests Unitaires 🛡️🛠️
+
+Dans cette phase, l'objectif est passé de "faire fonctionner le code" à "garantir qu'il ne cassera jamais lors d'une mise à jour". Nous avons affronté des problèmes complexes liés aux types de données et à la structure même du projet.
+
+### 1. L'enjeu de la robustesse des données (Handling Edge Cases)
+Les tests unitaires ont révélé que notre `CleanLogger` était trop "optimiste". Il supposait que les statistiques fournies étaient toujours parfaites. Nous avons corrigé deux vulnérabilités majeures :
+* **Le piège du `NoneType`** : Si une statistique (ex: `empty_cols_dropped`) était absente ou `None`, le script plantait avec une `TypeError`. Nous avons implémenté l'utilisation de `.get(key, default)` pour garantir que le rapport se génère même avec des données incomplètes.
+* **L'absence de clés (`KeyError`)** : Si le dictionnaire `stats` ne contenait pas toutes les clés attendues (cas fréquent lors de nettoyages partiels), le processus s'arrêtait. Nous avons sécurisé chaque accès aux statistiques pour assurer la continuité du pipeline.
+
+### 3. Vers un environnement de test professionnel
+* **Configuration Pytest** : Utilisation de `pyproject.toml` avec la configuration `pythonpath = ["."]` pour permettre à `pytest` de découvrir les modules `src/` sans manipulation manuelle du `sys.path`.
+* **Résultat final** : Un passage de **13 tests réussis / 2 échecs** à un score parfait de **15/15 tests réussis**.
+
+### Résumé des compétences démontrées dans cette étape
+* **Debug avancé** : Capacité à identifier et résoudre des `TypeError` et `KeyError` complexes.
+* **Engineering de test** : Mise en place d'une suite de tests couvrant les cas nominaux, les cas limites (données vides, types incohérents) et les erreurs structurelles.
+* **Qualité Logicielle** : Transformation d'un script "fragile" en un module industriel "robuste".
+
+---
+
+## Étape 16 : Professionnalisation du Reporting et Sécurisation de l'Audit via `CleanerReporter` 📝🚀
+
+Après avoir stabilisé le moteur de nettoyage (`cleaner_engine`) et les tests unitaires, l'objectif est passé de la simple transformation de données à la **créabilité d'une preuve d'audit**. Un pipeline performant ne sert à rien si l'utilisateur final (le Data Analyst ou le métier) ne peut pas auditer les transformations effectuées.
+
+### 1. Le défi : Transformer des logs techniques en un rapport métier
+Jusqu'ici, la visibilité sur le nettoyage reposait sur des sorties textuelles dans la console, volatiles et difficiles à archiver. Le défi était de créer une classe `CleanerReporter` capable de transformer des objets complexes (`DataProfiler` et `CleanLogger`) en un document Markdown structuré, persistant et lisible par des non-développeurs.
+
+### 2. Implémentation de la couche d'Audit (Audit Trail)
+Le module a été conçu pour extraire et structurer l'information selon trois piliers critiques :
+* **Métadonnées de traçabilité** : Extraction automatique du chemin absolu du fichier source et horodatage précis pour garantir l'origine de la donnée.
+* **Indicateurs de performance (KPIs)** : Calcul des ratios de transformation (ex: perte de lignes, suppression de colonnes) sous forme de tableau comparatif "Avant vs Après".
+* **Journal d'exécution détaillé** : Transformation du log d'opérations en un tableau Markdown structuré, permettant de vérifier colonne par colonne l'action appliquée et son résultat.
+
+### 3. Ingénierie de la Robustesse (Programmation Défensive)
+La création de ce module a nécessité l'application de concepts avancés pour garantir que le reporting ne devienne pas un point de rupture du pipeline :
+
+* **Sanitisation des données (Protection contre l'injection Markdown)** : 
+  Un problème critique a été identifié : les données sources peuvent contenir des caractères réservés au formatage Markdown (comme `|`, `*` ou `_`). Si une colonne nommée `Prix | Promo` est traitée, le caractère `|` risque de briser la structure du tableau dans le rapport final. J'ai donc implémenté un mécanisme d'échappement systématique (`replace('|', '\\|')`) pour garantir l'intégrité visuelle du document, peu importe la "saleté" des données sources.
+
+* **Gestion de l'incertitude des interfaces (Interface Resilience)** : 
+  Le `CleanerReporter` interagit avec des modules dont la structure peut varier (`profiler` et `logger`). Pour éviter que le pipeline ne plante en cas de donnée manquante, j'ai implémenté :
+    * **L'accès sécurisé** via l'utilisation de `.get()` pour les dictionnaires, garantissant des valeurs par défaut (ex: `'N/A'`) au lieu d'une `KeyError`.
+    * **La validation de type** (`isinstance`) avant tout traitement, pour prévenir les erreurs de manipulation sur des structures inattendues.
+    * **Le blocage des exceptions critiques** : Utilisation de blocs `try/except AttributeError` pour capturer les erreurs si un module ne renvoie pas l'information attendue (ex: une colonne manquante dans le profilage).
+
+### 4. Compétences techniques mobilisées
+* **Python Avancé** : Manipulation de structures de données complexes et utilisation de `pathlib` pour une gestion moderne des chemins de fichiers.
+* **Sécurité des données** : Mise en place d'un mécanisme de nettoyage (sanitization) pour prévenir la corruption du format de sortie.
+* **Design Pattern "Reporter"** : Séparation stricte entre la logique métier (Engine) et la couche de présentation (Reporter), respectant le principe de responsabilité unique (SRP).

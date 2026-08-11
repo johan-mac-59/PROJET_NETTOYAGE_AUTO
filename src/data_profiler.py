@@ -32,7 +32,7 @@ class DataProfiler:
             'count': null_counts.to_dict(), 
             'percent': (null_counts / len(self.df) * 100).round(2).to_dict()
         }
-        self.profile_results['duplicates_count'] = int(self.df.duplicated().sum())
+        self.profile_results['nb_doublons'] = int(self.df.duplicated().sum())
 
         # 3. Stats Numériques
         numeric_cols = self.df.select_dtypes(include=['number'])
@@ -58,7 +58,7 @@ class DataProfiler:
         shape = self.profile_results['shape']
         # Vue d'ensemble
         md.append("## 🧱 Structure\n")
-        for k, v in {**shape, **{'duplicates_count': self.profile_results.get('duplicates_count', 0)}}.items():
+        for k, v in {**shape, **{'nb_doublons': self.profile_results.get('nb_doublons', 0)}}.items():
             md.append(f"- **{k}**: {v}")
         
         # Types (tableau simple)
