@@ -11,10 +11,10 @@ PROJET consistant à créer des outils intéractifs de nettoyage automatique de 
 Le projet est conçu comme une suite de modules spécialisés, orchestrés pour transformer des données brutes et incertaines en datasets propres et exploitables :
 
 * **`file_loader`** : **Intelligence de lecture.** Détecte automatiquement le format (CSV/Excel), l'encodage (UTF-8, Latin1) et le séparateur (`,` , `;` ou `\t`) pour garantir un chargement sans erreur.
-* **`data_profiler`** : **Inspection & Diagnostic.** Génère un rapport Markdown détaillé des données brutes (types, valeurs manquantes, statistiques clés, aperçu) avant le nettoyage. Idéal pour un audit rapide de la qualité des données.
-* **`cleaner_engine`** : **Moteur de transformation.** Automatise les tâches critiques du nettoyage : suppression des doublons, gestion intelligente des valeurs manquantes et normalisation des types de données.
-* **`cleaner_logger`** : **Audit & Traçabilité.** Génère un rapport détaillé après chaque passage, permettant de visualiser l'impact du nettoyage (nombre de lignes traitées, statistiques post-nettoyage).
-* **`cleaner_reporter`** : **Audit & Reporting.** Transforme les logs et les profils en un rapport Markdown structuré et pérenne. Il permet de comparer l'état "Avant" vs "Après" nettoyage (KPIs) et offre une vue d'audit sécurisée (protection contre les caractères spéciaux).
+* **`data_profiler`** : **Inspection & Diagnostic.** Génère un rapport Markdown détaillé des données brutes (types, valeurs manquantes, statistiques clés, apercu) avant le nettoyage. Idéal pour un audit rapide de la qualité des données.
+* **`cleaner_engine`** : **Moteur de transformation intelligent.** Automatise les tâches critiques : suppression des doublons, gestion des valeurs manquantes, et surtout **normalisation avancée des formats monétaires** (suppression des symboles €, $, £) et **correction des types numériques** (passage du type float instable au type `Int6able` robuste).
+* **`cleaner_logger`** : **Audit & Traçabilité.** Génère un rapport détaillé après chaque passage, permettant de visualiser l'impact précis du nettoyage (nombre de lignes traitées, statistiques post-nettoyage).
+* **`cleaner_reporter`** : **Audit & Reporting Professionnel.** Transforme les logs et les profils en un document d'audit Markdown structuré. Il permet de comparer l'état "Avant" vs "Après" nettoyage (KPIs) tout en garantant la sécurité du rapport via une sanitisation des caractères spéciaux.
 * **`run_pipeline`** : **Orchestration.** Pilote l'exécution complète du flux, du chargement des données brutes jusqu'à la production des fichiers nettoyés.
 
 ---
@@ -33,10 +33,13 @@ Le module est conçu pour être robuste et lever des exceptions claires si le fi
 - FileNotFoundError : Si le chemin du fichier est incorrect.  
 - ValueError : Si l'extension du fichier est inconnue (ex: .txt).  
 - Cas limite (Fichier vide) : Si le fichier fait 0 octet ou contient uniquement des sauts de ligne, la fonction retourne calmement un DataFrame vide (pd.DataFrame()) au lieu de planter.  
-🔧 Bonnes pratiques implémentées
-- Support multi-encodage : Pas de crash avec les fichiers exportés par Excel (souvent en latin1).
-- Détection automatique : Utilise l'heuristique d'échantillonnage pour identifier le séparateur dès les premières lignes.
-- Séparation des responsabilités : Les fonctions privées (_) ne font qu'une seule tâche précise (soit l'encodage, soit le séparateur).  
+
+### 🔧 Bonnes pratiques implémentées
+- **Robustesse des types (Int64)** : Utilisation de types entiers "nullables" pour préserver l'intégrité des colonnes numériques contenant des valeurs manquantes.
+- **Intelligence monétaire** : Capacité à normaliser et convertir des formats complexes (ex: `"1 200,50 €"` $\rightarrow$ `1200.50`).
+- **Support multi-encodage** : Pas de crash avec les fichiers exportés par Excel ou systèmes anciens (Latin1/CP1252).
+- **Détection automatique** : Utilise l'heuristique d'échantillonnage pour identifier le séparateur et la structure dès les premières lignes.
+- **Séparation des responsabilités (SRP)** : Architecture modulaire où chaque composant a une responsabilité unique, facilitant les tests unitaires et l'évolution. 
 
 
 ### Technologies utilisées :

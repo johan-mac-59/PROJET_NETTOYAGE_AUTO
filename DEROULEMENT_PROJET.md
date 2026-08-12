@@ -634,30 +634,39 @@ Le pipeline suit désormais un flux de données unidirectionnel et structuré :
 
 ---
 
-## Étape 18 : Optimisation de l'auditabilité du rapport de nettoyage
+## Étape 18 : Optimisation de l'auditabilité et intelligence du moteur numérique 🛠️🔍
 
-### 🎯 Objectif
-Améliorer la valeur métier du rapport de nettoyage en passant d'une simple statistique quantitative ("combien") à une documentation qualitative complète ("comment" et "combien"), essentielle pour la **reproductibilité** des analyses.
+Cette étape cruciale a transformé le pipeline d'un outil de nettoyage simple en un système d'audit professionnel, capable de traiter des formats complexes (monétaires) et de corriger les erreurs structurelles introduites par le chargement initial.
 
-### 🛠️ Travaux réalisés
+### 1. Intelligence du moteur numérique (Traitement des formats monétaires)
+L'un des plus grands défis était la présence de données numériques "sales" qui empêchaient toute conversion (ex: `"1 200,50 €"`). Le moteur ne reconnaissait pas ces valeurs comme des nombres à cause des symboles et des séparateurs hétérogènes.
 
-#### 1. Refonte de la structure des données (`cleaner_engine.py`)
-Modification de la structure de retour de `clean_missing_values`. Passage d'une chaîne de caractères descriptive à un objet structuré permettant de séparer les métriques :
-* **Avant :** `{'colonne': 'fill_mode_valeur'}` (problème de calcul du total)
-* **Après :** `{'colonne': {'count': 15, 'method': 'fill_mode_valeur'}}`
+* **Détection et Nettoyage intelligent** : Mise en place d'une logique capable de :
+    * Identifier les colonnes contenant des symboles monétaires (`€`, `$`, `£`).
+    * Gérer la dualité des séparateurs (conversion automatique de la virgule `,` en point `.` pour le standard Python).
+    * Supprimer les espaces de milliers (ex: `"1 000"` $\rightarrow$ `"1000"`) et les caractères parasites.
+* **Résultat** : Une augmentation drastique du taux de succès de la conversion `object -> float` sur des colonques critiques comme `montant_total`.
 
-#### 2. Évolution du moteur de reporting (`cleaner_reporter.py`)
-Mise à jour de la génération du tableau Markdown pour traiter cette nouvelle structure et afficher un tableau d'audit complet :
-* **Calcul robuste du total** via une compréhension de liste sécurisée (gestion des types `int` vs `dict`).
-* **Nouveau format de tableau** comprenant trois colonnes : 
-    1. Nom de la colonne concernée.
-    2. Nombre exact de cellules traitées (**Combien**).
-    3. Méthode d'imputation utilisée (**Comment**).
+### 2. Résolution du "Pandas Type Trap" (Le problème des entiers déguisés)
+Une problématique majeure a été identifiée sur les colonnes de comptage (`nb_nuits`, `nb_personnes`).
+
+* **Le Problème** : À cause de la présence de valeurs manquantes (`NaN`) ou de formats texte (`"7.0"`), Pandas charge ces colonnes en `float64`. Cela altère l'intégrité sémantique (on traite des décimaux là où nous avons des quantités entières).
+* **La Solution technique** : Implémentation d'une étape de **`fix_numeric_types`** intégrée au pipeline.
+    * **Détection** : Le module repère les colonnes `float64` dont la partie décimale est systématiquement nulle (ex: `1.0`, `2.0`).
+    * **Correction** : Conversion vers le type **`Int64` (Nullable Integer)** de Pandas. Ce type moderne conserve la nature entière de la donnée tout en supportant les valeurs manquantes (`<NA>`) sans forcer le retour à un format `float`.
+
+### 3. Amélioration de l'auditabilité du rapport (Le "Comment" et le "Combien")
+L'objectif était de passer d'une statistique brute à une documentation qualitative pour la reproductibilité.
+
+* **Refonte de la structure des données (`cleaner_engine.py`)** : Passage d'une chaîne descriptive à un objet structuré pour `clean_missing_values` :
+    * **Avant :** `{'colonne': 'fill_mode_valeur'}` (impossible de calculer le total global).
+    * **Après :** `{'colonne': {'count': 15, 'method': 'fill_mode_valeur'}}` (permet un audit précis des volumes traités).
+* **Évolution du reporting (`cleaner_reporter.py`)** : Le rapport Markdown affiche désormais un véritable journal d'audit avec le nom de la colonne, le nombre de cellules traitées (**Combien**) et la méthode utilisée (**Comment**).
 
 ### ✅ Résultats
-* **Auditabilité accrue :** Possibilité de vérifier la cohérence des méthodes d'imputation (ex: éviter une médiane sur du texte).
-* **Traçabilité complète :** Le rapport devient un véritable journal de bord technique permettant la reproduction exacte du pipeline.
-* **Robustesse logicielle :** Suppression des erreurs de type (`TypeError`) lors de l'agrégation des statistiques globales.
+* **Intelligence métier** : Capacité à traiter des formats monétaires complexes sans intervention manuelle.
+* **Intégrité sémantique restaurée** : Les colonnes de comptage retrouvent leur nature d'entiers, même avec des valeurs vides.
+* **Auditabilité totale** : Le rapport devient un document de traçabilité permettant de vérifier chaque transformation effectuée sur le dataset.
 
 ---
 

@@ -83,7 +83,7 @@ class CleanerReporter:
             if 'types_converted' in stats and stats['types_converted']:
                 table_content += f"### Conversions de types\n\n"
                 table_content += f"Total de conversions effectuées : {len(stats['types_converted'])}\n\n"
-                table_content += "| Type converti | Colonnes concernées |\n"
+                table_content += "| Colonne | Type de conversion |\n"
                 table_content += "| :--- | :--- |\n"
                 for type_name, columns in stats['types_converted'].items():
                     # Si c'est une chaîne de caractères qui contient les colonnes
