@@ -634,8 +634,34 @@ Le pipeline suit désormais un flux de données unidirectionnel et structuré :
 
 ---
 
+## Étape 18 : Optimisation de l'auditabilité du rapport de nettoyage
 
-## Etape 18 : Tests unitaires Pytest de tous les modules modifiés
+### 🎯 Objectif
+Améliorer la valeur métier du rapport de nettoyage en passant d'une simple statistique quantitative ("combien") à une documentation qualitative complète ("comment" et "combien"), essentielle pour la **reproductibilité** des analyses.
+
+### 🛠️ Travaux réalisés
+
+#### 1. Refonte de la structure des données (`cleaner_engine.py`)
+Modification de la structure de retour de `clean_missing_values`. Passage d'une chaîne de caractères descriptive à un objet structuré permettant de séparer les métriques :
+* **Avant :** `{'colonne': 'fill_mode_valeur'}` (problème de calcul du total)
+* **Après :** `{'colonne': {'count': 15, 'method': 'fill_mode_valeur'}}`
+
+#### 2. Évolution du moteur de reporting (`cleaner_reporter.py`)
+Mise à jour de la génération du tableau Markdown pour traiter cette nouvelle structure et afficher un tableau d'audit complet :
+* **Calcul robuste du total** via une compréhension de liste sécurisée (gestion des types `int` vs `dict`).
+* **Nouveau format de tableau** comprenant trois colonnes : 
+    1. Nom de la colonne concernée.
+    2. Nombre exact de cellules traitées (**Combien**).
+    3. Méthode d'imputation utilisée (**Comment**).
+
+### ✅ Résultats
+* **Auditabilité accrue :** Possibilité de vérifier la cohérence des méthodes d'imputation (ex: éviter une médiane sur du texte).
+* **Traçabilité complète :** Le rapport devient un véritable journal de bord technique permettant la reproduction exacte du pipeline.
+* **Robustesse logicielle :** Suppression des erreurs de type (`TypeError`) lors de l'agrégation des statistiques globales.
+
+---
+
+## Etape 19 : Tests unitaires Pytest de tous les modules modifiés
 
 
 

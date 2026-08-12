@@ -107,7 +107,14 @@ def clean_types(df: pd.DataFrame) -> Tuple[pd.DataFrame, dict]:
                 except Exception:
                     continue
 
-    return df_cleaned, conversions
+    # Pour garder trace des colonnes concernées dans les conversions
+    conversions_with_cols = {}
+    for col, conv_type in conversions.items():
+        if col not in conversions_with_cols:
+            conversions_with_cols[col] = []
+        conversions_with_cols[col].append(conv_type)
+
+    return df_cleaned, conversions_with_cols
 
 def clean_duplicates(df: pd.DataFrame) -> Tuple[pd.DataFrame, int]:
     """Supprime les doublons exacts."""
@@ -117,7 +124,7 @@ def clean_duplicates(df: pd.DataFrame) -> Tuple[pd.DataFrame, int]:
     df_cleaned = df.copy() 
     n_before = len(df_cleaned)
     
-    # On garde la première occurrence
+    # On garde la première occurrencee
     df_cleaned = df_cleaned.drop_duplicates(keep='first')
     
     n_removed = n_before - len(df_cleaned)
@@ -139,14 +146,21 @@ def clean_missing_values(df: pd.DataFrame) -> Tuple[pd.DataFrame, dict]:
                 # On remplit uniquement les NaN, sans changer le type de la colonne
                 mask = df_cleaned[col].isna()
                 df_cleaned.loc[mask, col] = median_val
-                actions[col] = f"fill_median_{median_val}"
+                actions[col] = {
+                    'count': null_count,
+                    'method': f"fill_median_{median_val}" if pd.api.types.is_numeric_dtype(df_cleaned[col]) else f"fill_mode_{str(mode_val)}"
+    }
             
             else:
                 mode_val = df_cleaned[col].mode()[0] if not df_cleaned[col].mode().empty else 'Inconnu'
                 # On force le type string pour éviter les erreurs lors du fillna
                 mask = df_cleaned[col].isna()
                 df_cleaned.loc[mask, col] = str(mode_val)
-                actions[col] = f"fill_mode_{str(mode_val)}"
+                actions[col] = {
+                    'count': null_count,
+                    'method': f"fill_mode_{str(mode_val)}"
+                }
+
 
     return df_cleaned, actions
 
@@ -250,15 +264,15 @@ def run_all_cleaning_steps(df: pd.DataFrame, max_iterations: int = 5) -> Tuple[p
             stats['missing_filled'].update(fillings)
             any_change = True
 
-        # 6. Outliers IQR (En dernier, sur données numérées et propres) 
-        current_df, outliers = clip_outliers(current_df)
-        if outliers:
-            for col, count in outliers.items():
-                stats['outliers_corrected'][col] = stats['outliers_corrected'].get(col, 0) + count
-            any_change = True
-
         # Si rien n'a changé, on arrête (convergence)
         if not any_change:
             break
+    
+    # 6. Outliers IQR (En dernier, sur données numérées et propres) 
+    current_df, outliers = clip_outliers(current_df)
+    if outliers:
+        for col, count in outliers.items():
+            stats['outliers_corrected'][col] = stats['outliers_corrected'].get(col, 0) + count
+        any_change = True
 
     return current_df, stats
