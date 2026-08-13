@@ -3,6 +3,10 @@ import os
 import pandas as pd
 from pathlib import Path
 from typing import Dict, Any
+import matplotlib.pyplot as plt
+import seaborn as sns
+from io import BytesIO
+import base64
 
 class DataProfiler:
     """Analyse descriptive d'un DataFrame avec génération de rapport Markdown."""
@@ -346,12 +350,234 @@ class DataProfiler:
         print(f"📄 Rapport sauvegardé : {output_filename}")
         return output_filename
 
-    # --- Future méthode d'alertes ---
-    def detect_quality_issues(self) -> Dict[str, str]:
-        """Préparation pour les futures préconisations de nettoyage."""
-        issues = {}
-        for col, dtype in self.profile_results.get('dtypes', {}).items():
-            if 'float' in dtype and col in self.df.columns:
-                # Exemple : si une colonne float a beaucoup de NaN, c'est un problème potentiel
-                pass 
-        return issues
+    def generate_visualizations(self, output_dir: str = "data/processed/") -> None:
+        """Génère des visualisations et les sauvegarde dans un dossier."""
+        os.makedirs(output_dir, exist_ok=True)
+        
+        # 1. Histogrammes pour les colonnes numériques
+        numeric_cols = self.df.select_dtypes(include=['number']).columns
+        for col in numeric_cols:
+            try:
+                plt.figure(figsize=(8, 4))
+                sns.histplot(self.df[col].dropna(), kde=True)
+                plt.title(f"Distribution de {col}")
+                plt.tight_layout()
+                plt.savefig(Path(output_dir) / f"{col}_hist.png")
+                plt.close()
+            except Exception as e:
+                print(f"⚠️ Erreur lors de la génération du histogramme pour {col}: {e}")
+
+        # 2. Boxplots pour les colonnes numériques (outliers)
+        for col in numeric_cols:
+            try:
+                plt.figure(figsize=(6, 3))
+                sns.boxplot(y=self.df[col].dropna())
+                plt.title(f"Boxplot de {col}")
+                plt.tight_layout()
+                plt.savefig(Path(output_dir) / f"{col}_boxplot.png")
+                plt.close()
+            except Exception as e:
+                print(f"⚠️ Erreur lors de la génération du boxplot pour {col}: {e}")
+
+        # 3. Graphiques pour les colonnes catégorielles
+        categorical_cols = self.df.select_dtypes(include=['str','object', 'category']).columns
+        for col in categorical_cols:
+            try:
+                plt.figure(figsize=(10, 6))
+                value_counts = self.df[col].value_counts().head(10)  # Top 10 catégories
+                sns.barplot(x=value_counts.values, y=value_counts.index)
+                plt.title(f"Répartition de {col}")
+                plt.xlabel("Nombre de occurrences")
+                plt.tight_layout()
+                plt.savefig(Path(output_dir) / f"{col}_barplot.png")
+                plt.close()
+            except Exception as e:
+                print(f"⚠️ Erreur lors de la génération du barplot pour {col}: {e}")
+
+    def _generate_html_report(self) -> str:
+        """Convertit les résultats en HTML avec graphiques."""
+        # En-tête HTML
+        html = """
+        <!DOCTYPE html>
+        <html lang="fr">
+        <head>
+            <meta charset="UTF-8">
+            <title>Rapport d'Inspection des Données</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 20px; }
+                h1, h2, h3 { color: #2c3e50; }
+                table { border-collapse: collapse; width: 100%; margin: 10px 0; }
+                th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                th { background-color: #f2f2f2; }
+                img { max-width: 100%; height: auto; margin: 10px 0; }
+            </style>
+        </head>
+        <body>
+            <h1>📊 Rapport d'Inspection des Données</h1>
+            <hr>
+
+            <!-- Métadonnées -->
+            <h2>📂 Métadonnées & Contexte Source</h2>
+        """
+
+        # Ajout des métadonnées
+        if self.source_file_path:
+            source_filename = Path(self.source_file_path).name
+            html += f"<p><strong>Nom du fichier source</strong> : {source_filename}</p>"
+            html += f"<p><strong>Chemin d'accès complet</strong> : {self.source_file_path}</p>"
+        html += f"<p><strong>Date et heure de génération</strong> : {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}</p>"
+
+        # Structure
+        shape = self.profile_results['shape']
+        html += "<h2>🧱 Structure</h2>"
+        for k, v in {**shape, **{'nb_doublons': self.profile_results.get('nb_doublons', 0)}}.items():
+            html += f"<p><strong>{k}</strong>: {v}</p>"
+
+        # Types
+        html += "<h2>🏷️ Colonnes et Types</h2>"
+        html += "<table border='1'><tr><th>Colonne</th><th>Type</th></tr>"
+        for col, dtype in self.profile_results['dtypes'].items():
+            html += f"<tr><td>{col}</td><td>{dtype}</td></tr>"
+        html += "</table>"
+
+        # Valeurs manquantes
+        html += "<h2>⚠️ Valeurs Manquantes</h2>"
+        for col, pct in self.profile_results['missing_values']['percent'].items():
+            if pct > 0:
+                count = self.profile_results['missing_values']['count'][col]
+                html += f"<p><strong>{col}</strong>: {pct:.2f}% ({count} lignes)</p>"
+
+        # Qualité des lignes
+        if 'row_quality' in self.profile_results and self.profile_results['row_quality']['alerts']:
+            html += "<h2>🚩 Qualité des Lignes</h2>"
+            for alert in self.profile_results['row_quality']['alerts']:
+                if alert['type'] == 'row_full_empty':
+                    html += f"<p><strong>{alert['count']} lignes</strong> avec > 90% de valeurs manquantes : {alert['message']}</p>"
+                elif alert['type'] == 'row_partially_empty':
+                    html += f"<p><strong>{alert['count']} lignes</strong> avec {alert['percentage']}% de valeurs manquantes : {alert['message']}</p>"
+                    # Afficher les index des lignes si elles existent
+                    if 'rows' in alert and alert['rows']:
+                        html += f"<p>Index des lignes : {', '.join(map(str, alert['rows']))}</p>"
+
+        # Stats numériques
+        if 'describe_numeric' in self.profile_results:
+            desc_df = pd.DataFrame(self.profile_results['describe_numeric'])
+            html += "<h2>📈 Statistiques Numériques</h2>"
+            html += desc_df.round(2).to_html()
+
+        # Outliers
+        if 'outliers' in self.profile_results and self.profile_results['outliers']:
+            html += "<h2>🚩 Valeurs Aberrantes (Outliers)</h2>"
+            html += "<table border='1'><tr><th>Colonne</th><th>Nombre d'outliers</th><th>Limite inférieure</th><th>Limite supérieure</th></tr>"
+            for col, info in self.profile_results['outliers'].items():
+                html += f"<tr><td>{col}</td><td>{info['count']}</td><td>{info['lower_bound']:.2f}</td><td>{info['upper_bound']:.2f}</td></tr>"
+            html += "</table>"
+
+        # Stats Catégorielles
+        if 'describe_categorical' in self.profile_results:
+            html += "<h2>📊 Analyse des Colonnes Catégorielles</h2>"
+            
+            for col, stats in self.profile_results['describe_categorical'].items():
+                html += f"<h3>{col}</h3>"
+                
+                # Informations de base
+                html += f"<p><strong>Cardinalité absolue</strong> : {stats['cardinality_absolute']}</p>"
+                html += f"<p><strong>Cardinalité relative</strong> : {stats['cardinality_relative']}%</p>"
+                html += f"<p><strong>Sparsity Ratio | Taux de remplissage</strong> : {stats['sparsity_ratio']}%</p>"
+                
+                # Skewness de fréquence
+                if stats['is_high_skewness']:
+                    html += f"<p><strong>Skewness Frequency | Asymétrie de distribution</strong> : {stats['skewness_frequency']}% (⚠️ Faible variance)</p>"
+                else:
+                    # Ne pas afficher une faible variance si la colonne est très riche
+                    if stats['cardinality_absolute'] > 10:  # Si plus de 10 catégories, c'est un cas normal
+                        html += f"<p><strong>Skewness Frequency | Asymétrie de distribution</strong> : {stats['skewness_frequency']}%</p>"
+                    else:
+                        # Pour les colonnes avec peu de valeurs, on n'affiche pas la valeur faible
+                        html += f"<p><strong>Skewness Frequency | Asymétrie de distribution</strong> : {stats['skewness_frequency']}% (⚠️ Peu de catégories)</p>"
+
+                # Catégories les plus fréquentes
+                html += "<p><strong>Catégories les plus fréquentes</strong> :</p>"
+                html += "<ul>"
+                for category, count in stats['top_categories'].items():
+                    percentage = (count / (len(self.df) - self.df[col].isnull().sum()) * 100).round(2)
+                    html += f"<li>{category} ({percentage}%)</li>"
+                html += "</ul>"
+                
+                # Qualité du format
+                if stats['format_anomalies']:
+                    html += "<p><strong>⚠️ Anomalies de format détectées</strong> :</p>"
+                    html += "<ul>"
+                    for issue in stats['format_anomalies']:
+                        html += f"<li>{issue}</li>"
+                    html += "</ul>"
+                else:
+                    html += "<p><strong>✅ Format conforme</strong></p>"
+
+        # Visualisations
+        html += "<h2>📊 Graphiques</h2>"
+        numeric_cols = self.df.select_dtypes(include=['number']).columns
+        for col in numeric_cols:
+            html += f"<h3>{col}</h3>"
+            html += f'<img src="graphs/{col}_hist.png" alt="{col} histogram" width="400">'
+            html += f'<img src="graphs/{col}_boxplot.png" alt="{col} boxplot" width="400">'
+
+        # Graphiques catégoriels
+        categorical_cols = self.df.select_dtypes(include=['str','object', 'category']).columns
+        for col in categorical_cols:
+            html += f"<h3>{col}</h3>"
+            html += f'<img src="graphs/{col}_barplot.png" alt="{col} barplot" width="400">'
+
+        # Aperçu
+        html += "<h2>👀 Aperçu</h2>"
+        try:
+            # Utiliser directement le DataFrame pour générer un tableau HTML propre
+            preview_df = self.df.head(10)
+            html += preview_df.to_html(index=False, table_id='preview-table', escape=False)
+        except Exception as e:
+            # Fallback si conversion échoue
+            html += "<p>Erreur lors de l'affichage de l'aperçu</p>"
+            # Afficher le texte brut en dernier recours
+            if self.profile_results['sample_preview']:
+                html += f"<pre>{self.profile_results['sample_preview']}</pre>"
+
+        html += "</body></html>"
+        return html
+
+    def generate_html_report(self, output_filename: str = "data/processed/data_profiling_report.html") -> str:
+        """Génère un rapport HTML avec graphiques."""
+        os.makedirs(os.path.dirname(output_filename), exist_ok=True)
+        
+        if not self.profile_results:
+            self.run_analysis()
+            
+        # Générer les visualisations
+        self.generate_visualizations("data/processed/graphs")
+        
+        report_content = self._generate_html_report()
+        
+        with open(output_filename, "w", encoding="utf-8") as f:
+            f.write(report_content)
+            
+        print(f"📄 Rapport HTML sauvegardé : {output_filename}")
+        return output_filename
+
+    def interactive_report_generation(self) -> None:
+        """Demande à l'utilisateur le format du rapport (MD ou HTML)."""
+        print("\n--- 📊 Choix du Format de Rapport ---")
+        print("Souhaitez-vous un rapport en format Markdown (.md) ou HTML avec graphiques ?")
+        print("1. Markdown (.md)")
+        print("2. HTML avec graphiques")
+        
+        choice = input("Votre choix (1 ou 2) : ").strip()
+        
+        if choice == "1":
+            output_file = "data/processed/data_profiling_report.md"
+            self.generate_report(output_file)
+        elif choice == "2":
+            output_file = "data/processed/data_profiling_report.html"
+            self.generate_html_report(output_file)
+        else:
+            print("❌ Choix non valide. Génération par défaut en Markdown.")
+            output_file = "data/processed/data_profiling_report.md"
+            self.generate_report(output_file)

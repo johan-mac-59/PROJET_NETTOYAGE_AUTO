@@ -727,4 +727,35 @@ Le moteur continue d'affiner l'audit des données textuelles et numériques selo
 Le `DataProfiler` ne se contente plus de décrire ce qui est là ; il prévient l'analyste des risques structurels avant même que le moteur de nettoyage (`cleaner_engine`) ne soit lancé. C'est le passage d'un mode **"Nettoyage aveugle"** à un mode **"Audit & Action"**.
 
 ---
-*Projet en cours de développement - Amélioration continue de la précision analytique*
+
+## Étape 21 : Évolution vers l'Interactivité et l'Exploration Multimodale (HTML & Graphiques) 交互 📈
+
+Dans cette phase d'évolution, le projet a franchi un nouveau palier en passant d'un pipeline purement automatisé à une interface de pilotage interactive. L'objectif était de donner le contrôle à l'utilisateur final sur la nature du livrable produit.
+
+### 1. Introduction de l'Interaction Utilisateur (Human-in-the-loop)
+Jusqu'alors, le pipeline exécutait une séquence figée. Nous avons introduit une couche d'interaction au point d'entrée (`main.py`) pour permettre un choix stratégique lors de l'exécution :
+* **Mode Standard (Markdown)** : Pour une documentation rapide, légère et compatible avec les environnements textuels (Git/Terminal).
+* **Mode Exploratoire (HTML)** : Pour une analyse riche, visuelle et destinée à être partagée avec des parties prenantes non-techniques.
+
+Cette interaction transforme le script d'un outil de "traitement en tâche de fond" en un véritable outil d'**aide à la décision**.
+
+### 2. Diversification du Format de Sortie : L'émergence du Rapport HTML
+Le déploiement d'un nouveau moteur de rendu HTML a permis de briser les limites textuelles du Markdown. Cette évolution repose sur une architecture de reporting duale :
+* **Persistance des métadonnées** : Le rapport HTML conserve l'intégralité de la structure logique, des statistiques et des audits (structure, types, valeurs manquantes) présents dans le format Markdown.
+* **Évolutivité du rendu** : L'implémentation d'une nouvelle couche `_generate_html_report` prépare le terrain pour une intégration de visualisations complexes sans altérer la logique de calcul du `DataProfiler`.
+
+### 3. Préparation à l'Exploration Visuelle (Visual Analytics)
+Bien que la génération des graphiques soit en phase de stabilisation, l'infrastructure est désormais prête à accueillir des couches de visualisation dynamique :
+* **Architecture de stockage des assets** : Mise en place d'un système de gestion des chemins vers un dossier `graphs/` dédié, permettant au rapport HTML de référener des éléments visuels (Histogrammes, Boxplots, Barplots) de manière robuste.
+* **Vision prospective** : L'intégration programmée de bibliothèques comme `Seaborn` ou `Plotly` permettra, à court terme, de transformer le rapport statique en un tableau de bord analytique interactif.
+
+### 4. Défis d'Ingénierie rencontrés
+* **Gestion de l'interactivité dans un script CLI** : Assurer que la prise de décision utilisateur (input) ne bloque pas l'exécution du pipeline en cas d'erreur de saisie.
+* **Dualité du rendu** : Maintenir une cohérence parfaite entre les deux formats de rapport pour garantir que le choix du format ne modifie pas la vérité scientifique des données présentées.
+
+### Résumé de la valeur ajoutée
+Le projet quitte le stade de "script de nettoyage" pour devenir un **système d'audit décisionnel**. L'utilisateur ne subit plus un processus automatique, il pilote une investigation sur la qualité de ses données, avec la possibilité de choisir entre la précision textuelle du Markdown et la richesse visuelle du HTML.
+
+---
+*Projet en cours de développement - Expansion vers l'analyse visuelle avancée*
+
