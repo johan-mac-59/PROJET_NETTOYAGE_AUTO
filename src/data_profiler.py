@@ -35,20 +35,23 @@ class DataProfiler:
             'percent': (null_counts / len(self.df) * 100).round(2).to_dict()
         }
         self.profile_results['nb_doublons'] = int(self.df.duplicated().sum())
+        
+        # 3. Lignes peu remplies
+        self.profile_results['row_quality'] = self._analyze_row_quality()
 
-        # 3. Stats Numériques
+        # 4. Stats Numériques
         numeric_cols = self.df.select_dtypes(include=['number'])
         if not numeric_cols.empty:
             self.profile_results['describe_numeric'] = numeric_cols.describe().to_dict()
             # Ajout de la détection des outliers
             self.profile_results['outliers'] = self._detect_outliers(numeric_cols)
 
-        # 4. Stats Catégorielles
+        # 5. Stats Catégorielles
         categorical_cols = self.df.select_dtypes(include=['str','object', 'category'])
         if not categorical_cols.empty:
             self.profile_results['describe_categorical'] = self._analyze_categorical_columns(categorical_cols)
 
-        # 5. Aperçu
+        # 6. Aperçu
         self.profile_results['sample_preview'] = self.df.head(10).to_markdown(index=False) if not self.df.empty else "Pas de données"
         
         return self.profile_results
@@ -149,6 +152,72 @@ class DataProfiler:
             }
         
         return categorical_stats
+    
+    def _analyze_row_quality(self) -> Dict[str, Any]:
+        """Analyse la qualité des lignes en fonction du pourcentage de valeurs manquantes."""
+        # Calcul du pourcentage de valeurs manquantes par ligne
+        row_null_counts = self.df.isnull().sum(axis=1)
+        row_null_percentages = (row_null_counts / len(self.df.columns) * 100).round(2)
+        
+        # Classification des lignes
+        row_full_empty = (row_null_percentages > 90).sum()
+        row_partially_empty = ((row_null_percentages >= 30) & (row_null_percentages <= 90)).sum()
+        
+        # Identification des index des lignes problématiques
+        problematic_rows = {
+            'full_empty': row_null_percentages[row_null_percentages > 90].index.tolist(),
+            'partially_empty': row_null_percentages[(row_null_percentages >= 30) & (row_null_percentages <= 90)].index.tolist()
+        }
+        
+        # Génération des alertes
+        alerts = []
+        if row_full_empty > 0:
+            alerts.append({
+                'type': 'row_full_empty',
+                'count': int(row_full_empty),
+                'message': "À supprimer"
+            })
+        
+        # Pour les lignes partiellement vides, on identifie les pourcentages spécifiques
+        if row_partially_empty > 0:
+            # Regrouper par pourcentage de valeurs manquantes
+            percentage_groups = row_null_percentages[(row_null_percentages >= 30) & (row_null_percentages <= 90)].value_counts().sort_index(ascending=False)
+            
+            # Ne pas afficher plus de 10 lignes au total
+            displayed_rows = 0
+            for pct, count in percentage_groups.items():
+                if displayed_rows >= 10:
+                    break
+                    
+                # Afficher uniquement les lignes avec au moins 25% de manquants
+                if pct >= 25:
+                    # Trouver les index des lignes avec ce pourcentage spécifique
+                    rows_with_pct = row_null_percentages[row_null_percentages == pct].index.tolist()
+                    
+                    # Limiter à 10 index max par groupe
+                    rows_to_show = rows_with_pct[:10]
+                    
+                    # Message différent si plus de 10 lignes dans le groupe
+                    if len(rows_with_pct) > 10:
+                        message = f"À inspecter manuellement (affichées 10 premières sur {len(rows_with_pct)})"
+                    else:
+                        message = "À inspecter manuellement"
+                    
+                    alerts.append({
+                        'type': 'row_partially_empty',
+                        'count': int(count),
+                        'percentage': float(pct),
+                        'rows': rows_to_show,
+                        'message': message
+                    })
+                    
+                    displayed_rows += len(rows_to_show)
+        
+        return {
+            'row_null_percentages': row_null_percentages.to_dict(),
+            'problematic_rows': problematic_rows,
+            'alerts': alerts
+        }
 
     def _generate_markdown_report(self) -> str:
         """Convertit les résultats en Markdown structuré."""
@@ -191,6 +260,19 @@ class DataProfiler:
             if pct > 0:
                 count = self.profile_results['missing_values']['count'][col]
                 md.append(f"- **{col}**: {pct:.2f}% ({count} lignes)")
+
+        # Qualité des lignes
+        if 'row_quality' in self.profile_results and self.profile_results['row_quality']['alerts']:
+            md.append("\n## 🚩 Qualité des Lignes\n")
+            for alert in self.profile_results['row_quality']['alerts']:
+                if alert['type'] == 'row_full_empty':
+                    md.append(f"- **{alert['count']} lignes** avec > 90% de valeurs manquantes : {alert['message']}")
+                elif alert['type'] == 'row_partially_empty':
+                    if 'percentage' in alert:
+                        md.append(f"- **{alert['count']} lignes** avec {alert['percentage']}% de valeurs manquantes : {alert['message']}")
+                        # Afficher les index des lignes si elles existent
+                        if 'rows' in alert and alert['rows']:
+                            md.append(f"  - Index des lignes : {', '.join(map(str, alert['rows']))}")
 
         # Stats Numériques (si présentes)
         if 'describe_numeric' in self.profile_results:

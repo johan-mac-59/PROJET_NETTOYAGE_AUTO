@@ -698,35 +698,33 @@ Après correction des tests pour les mettre en adéquation avec la nouvelle stru
 
 ---
 
-## Étape 20 : Enrichissement du Profilage Statistique et Standardisation Terminologique 📊🔍
+## Étape 20 : Profilage Multidimensionnel : De l'Analyse de Colonnes à l'Audit de Structure 📊🔍
 
-Dans cette phase d'amélioration continue, nous avons transcendé le simple rôle de "lecteur de structure" du `DataProfiler` pour en faire un véritable outil d'audit de qualité de données. L'objectif était d'apporter une couche d'intelligence analytique sur les colonnes catégorielles et de professionnaliser la communication des résultats.
+Dans cette phase d'évolution majeure, nous avons transcendé le rôle du `DataProfiler` (simple lecteur de structure) pour en faire un véritable outil d'audit de qualité de données complet, capable d'inspecter la santé des colonnes **et** la complétude des lignes.
 
-### 1. Évolution vers un Profilage Multidimensionnel
-Le module a été enrichi pour analyser la structure interne des données textuelles selon quatre piliers critiques :
+### 1. Analyse de la Qualité Structurelle des Lignes (Row Integrity)
+Le module a acquis une nouvelle dimension : l'inspection de la densité informationnelle par enregistrement.
+* **Détection de la vacuité** : Calcul automatique du pourcentage de valeurs manquantes par ligne.
+* **Classification par criticité** : 
+    * **Niveau Critique (>90% vide)** : Identification des lignes "fantômes" à supprimer pour nettoyer le bruit.
+    * **Niveau Alerte (30-90% vide)** : Identification des lignes nécessitant une inspection manuelle.
+* **Reporting granulaire et intelligent** : 
+    * Pour éviter l'infobésité, le module regroupe les alertes par **pourcentage exact de valeurs manquantes**, permettant de voir les motifs de structure récurrents.
+    * Implémentation d'une **sécurité d'affichage** : limitation à 10 index maximum par groupe pour garantir la lisibilité du rapport Markdown, tout en indiquant le nombre total de lignes impactées.
 
+### 2. Analyse Approfondie des Colonnes (Column Intelligence)
+Le moteur continue d'affiner l'audit des données textuelles et numériques selon quatre piliers :
 * **Cardinalité Avancée** : Calcul de la cardinalité absolue et relative (ratio par rapport au volume total).
 * **Indicateur de Remplissage (Sparsity Ratio)** : Intégration du taux de remplissage spécifique aux colonnes catégorielles.
 * **Analyse de la Variance (Skewness de Fréquence)** : Implémentation d'un indicateur de dominance. Si une catégorie représente plus de 90% des données, le module génère une alerte visuelle (⚠️) signalant une faible variance.
 * **Audit de Conformité Syntaxique** : Détection automatique des anomalies de formatage (espaces traînants, hétérogénéité de casse).
 
-### 2. Standardisation Terminologique (Approche Bilingue)
-Pour répondre aux standards de l'industrie et faciliter la lecture par des interlocuteurs internationaux, nous avons adopté une nomenclature **"Terme Anglais | Traduction Française"** dans tous les rapports Markdown :
-* *Exemple : "Sparsity Ratio | Taux de remplissage"*
-* *Exemple : "Skewness Frequency | Asymétrie de distribution"*
+### 3. Standardisation Terminologique et Présentation
+* **Approche Bilingue Professionnelle** : Pour répondre aux standards internationaux, nous avons adopté une nomenclature **"Terme Anglais | Traduction Française"** (*ex: "Sparsity Ratio | Taux de remplissage"*).
+* **Stratégie d'Affichage Dynamique** : Pour les colonnes à forte cardinalité, le module se concentre sur le **Top 5 des catégories** les plus représentatives avec leur poids relatif (%), évitant ainsi de surcharger le rapport.
 
-Cette approche permet de conserver la précision technique du jargon Data Science tout en assurant une compréhension immédiate pour des décideurs francophones.
-
-### 3. Optimisation de la Présentation (Stratégie d'Affichage)
-Pour éviter l'infobésité sur des datasets massifs, nous avons implémenté un filtrage intelligent :
-* **Règle de Visibilité** : Si une colonne possède moins de 20 valeurs uniques, l'intégralité du catalogue est affichée. Au-delà, le module se concentre sur les **5 catégories les plus représentatives** avec leur poids relatif (%).
-
-### 4. Résolution de Problématiques de Robustesse
-* **Fiabilisation des calculs** : Correction d'une régression (`TypeError`) liée au calcul des pourcentages sur des objets flottants, en standardisant l'utilisation de `round()` sur des types Python natifs.
-* **Sécurisation des Outliers** : Renforcement du type de retour des bornes (conversion explicite en `float`) pour éviter les erreurs lors de la génération du tableau Markdown.
-
-### 5. Impact sur le Workflow
-Le pipeline passe d'un mode "Nettoyage aveugle" à un mode **"Audit & Action"**. L'analyste dispose désormais d'une vue pré-nettoyage qui lui permet de comprendre non seulement *ce qui est présent*, mais surtout *la qualité sémantique* des données.
+### 4. Impact sur la Fiabilité du Pipeline
+Le `DataProfiler` ne se contente plus de décrire ce qui est là ; il prévient l'analyste des risques structurels avant même que le moteur de nettoyage (`cleaner_engine`) ne soit lancé. C'est le passage d'un mode **"Nettoyage aveugle"** à un mode **"Audit & Action"**.
 
 ---
 *Projet en cours de développement - Amélioration continue de la précision analytique*
