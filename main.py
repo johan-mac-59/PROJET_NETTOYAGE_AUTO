@@ -13,7 +13,7 @@ def main():
     # 1. Configuration (Pathlib pour les chemins robustes sous Windows)
     base_dir = Path(__file__).parent
     input_file = base_dir / "data/raw/reservations_rivage_brut.csv"
-    output_file = base_dir / "data/processed/dataset_nettoye.cs2v"
+    output_file = base_dir / "data/processed/dataset_nettoye.csv"
     reports_dir = base_dir / "data/reports"
     
     # On s'assure que les dossiers de sortie existent
@@ -38,30 +38,8 @@ def main():
     try:
         profiler = DataProfiler(initial_df, input_file)
         
-        # Interaction utilisateur pour choisir le format du rapport
-        print("\n--- 📊 Choix du Format de Rapport ---")
-        print("Souhaitez-vous un rapport en format Markdown (.md) ou HTML avec graphiques ?")
-        print("1. Markdown (.md)")
-        print("2. HTML avec graphiques")
-        
-        choice = input("Votre choix (1 ou 2) : ").strip()
-        
-        # Nom du rapport avec timestamp pour éviter l'écrasement
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M')
-        
-        if choice == "1":
-            report_filename = reports_dir / f"profiling_{input_file.stem}_{timestamp}.md"
-            profiler.generate_report(str(report_filename))
-            print(f"📊 Rapport Markdown généré : {report_filename}")
-        elif choice == "2":
-            report_filename = reports_dir / f"profiling_{input_file.stem}_{timestamp}.html"
-            profiler.generate_html_report(str(report_filename))
-            print(f"📊 Rapport HTML avec graphiques généré : {report_filename}")
-        else:
-            print("❌ Choix non valide. Génération par défaut en Markdown.")
-            report_filename = reports_dir / f"profiling_{input_file.stem}_{timestamp}.md"
-            profiler.generate_report(str(report_filename))
-            print(f"📊 Rapport Markdown généré : {report_filename}")
+        # Générer un rapport interactif
+        profiler.interactive_report_choice(reports_dir, input_file)
             
     except Exception as e:
         print(f"⚠️ Erreur lors du profilage (continuation du pipeline) : {e}")
@@ -78,7 +56,7 @@ def main():
     try:
         output_file.parent.mkdir(parents=True, exist_ok=True)
         cleaned_df.to_csv(output_file, index=False, encoding='utf-8')
-        print(f"✅ Données propres sauvegardées dans : {output_file}")
+        print(f"✅ Données nettoyées sauvegardées dans : {output_file}")
     except Exception as e:
         print(f"❌ Erreur lors de la sauvegarde : {e}")
         return

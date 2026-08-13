@@ -335,7 +335,7 @@ class DataProfiler:
 
         return "\n".join(md)
 
-    def generate_report(self, output_filename: str = "data/processed/data_profiling_report.md") -> str:
+    def generate_md_report(self, output_filename: str = "data/processed/data_profiling_report.md") -> str:
         """Sauvegarde le rapport Markdown."""
         os.makedirs(os.path.dirname(output_filename), exist_ok=True)
         
@@ -395,7 +395,7 @@ class DataProfiler:
                 print(f"⚠️ Erreur lors de la génération du barplot pour {col}: {e}")
 
     def _generate_html_report(self) -> str:
-        """Convertit les résultats en HTML avec graphiques."""
+        """Convertit les résultats en HTML avec graphiques intégrés."""
         # En-tête HTML
         html = """
         <!DOCTYPE html>
@@ -514,19 +514,72 @@ class DataProfiler:
                 else:
                     html += "<p><strong>✅ Format conforme</strong></p>"
 
-        # Visualisations
+        # Visualisations intégrées
         html += "<h2>📊 Graphiques</h2>"
+        
+        # Générer les graphiques directement dans le HTML
         numeric_cols = self.df.select_dtypes(include=['number']).columns
         for col in numeric_cols:
             html += f"<h3>{col}</h3>"
-            html += f'<img src="graphs/{col}_hist.png" alt="{col} histogram" width="400">'
-            html += f'<img src="graphs/{col}_boxplot.png" alt="{col} boxplot" width="400">'
+            
+            # Histogramme
+            try:
+                plt.figure(figsize=(8, 4))
+                sns.histplot(self.df[col].dropna(), kde=True)
+                plt.title(f"Distribution de {col}")
+                plt.tight_layout()
+                
+                # Convertir le graphique en base64
+                img_buffer = BytesIO()
+                plt.savefig(img_buffer, format='png')
+                img_buffer.seek(0)
+                img_base64 = base64.b64encode(img_buffer.getvalue()).decode()
+                plt.close()
+                
+                html += f'<img src="data:image/png;base64,{img_base64}" alt="{col} histogram" width="400">'
+            except Exception as e:
+                html += f"<p>Erreur lors de la génération de l'histogramme pour {col}: {e}</p>"
+            
+            # Boxplot
+            try:
+                plt.figure(figsize=(6, 3))
+                sns.boxplot(y=self.df[col].dropna())
+                plt.title(f"Boxplot de {col}")
+                plt.tight_layout()
+                
+                # Convertir le graphique en base64
+                img_buffer = BytesIO()
+                plt.savefig(img_buffer, format='png')
+                img_buffer.seek(0)
+                img_base64 = base64.b64encode(img_buffer.getvalue()).decode()
+                plt.close()
+                
+                html += f'<img src="data:image/png;base64,{img_base64}" alt="{col} boxplot" width="400">'
+            except Exception as e:
+                html += f"<p>Erreur lors de la génération du boxplot pour {col}: {e}</p>"
 
         # Graphiques catégoriels
         categorical_cols = self.df.select_dtypes(include=['str','object', 'category']).columns
         for col in categorical_cols:
             html += f"<h3>{col}</h3>"
-            html += f'<img src="graphs/{col}_barplot.png" alt="{col} barplot" width="400">'
+            try:
+                plt.figure(figsize=(10, 6))
+                value_counts = self.df[col].value_counts().head(10)  # Top 10 catégories
+                sns.barplot(x=value_counts.values, y=value_counts.index)
+                plt.title(f"Répartition de {col}")
+                plt.xlabel("Nombre de occurrences")
+                plt.tight_layout()
+                
+                # Convertir le graphique en base64
+                img_buffer = BytesIO()
+                plt.savefig(img_buffer, format='png')
+                img_buffer.seek(0)
+                img_base64 = base64.b64encode(img_buffer.getvalue()).decode()
+                plt.close()
+                
+                html += f'<img src="data:image/png;base64,{img_base64}" alt="{col} barplot" width="400">'
+            except Exception as e:
+                html += f"<p>Erreur lors de la génération du barplot pour {col}: {e}</p>"
 
         # Aperçu
         html += "<h2>👀 Aperçu</h2>"
@@ -545,15 +598,13 @@ class DataProfiler:
         return html
 
     def generate_html_report(self, output_filename: str = "data/processed/data_profiling_report.html") -> str:
-        """Génère un rapport HTML avec graphiques."""
+        """Génère un rapport HTML avec graphiques intégrés."""
         os.makedirs(os.path.dirname(output_filename), exist_ok=True)
         
         if not self.profile_results:
             self.run_analysis()
             
-        # Générer les visualisations
-        self.generate_visualizations("data/processed/graphs")
-        
+        # Générer le rapport HTML avec graphiques intégrés
         report_content = self._generate_html_report()
         
         with open(output_filename, "w", encoding="utf-8") as f:
@@ -562,22 +613,28 @@ class DataProfiler:
         print(f"📄 Rapport HTML sauvegardé : {output_filename}")
         return output_filename
 
-    def interactive_report_generation(self) -> None:
-        """Demande à l'utilisateur le format du rapport (MD ou HTML)."""
+    def interactive_report_choice(self, reports_dir, input_file):
+        """Permet de choisir le format de rapport de manière interactive"""
         print("\n--- 📊 Choix du Format de Rapport ---")
         print("Souhaitez-vous un rapport en format Markdown (.md) ou HTML avec graphiques ?")
         print("1. Markdown (.md)")
         print("2. HTML avec graphiques")
         
+        import datetime
+        
         choice = input("Votre choix (1 ou 2) : ").strip()
         
+        timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M')
+        
         if choice == "1":
-            output_file = "data/processed/data_profiling_report.md"
-            self.generate_report(output_file)
+            report_filename = reports_dir / f"profiling_{input_file.stem}_{timestamp}.md"
+            self.generate_md_report(str(report_filename))
         elif choice == "2":
-            output_file = "data/processed/data_profiling_report.html"
-            self.generate_html_report(output_file)
+            report_filename = reports_dir / f"profiling_{input_file.stem}_{timestamp}.html"
+            self.generate_html_report(str(report_filename))
         else:
             print("❌ Choix non valide. Génération par défaut en Markdown.")
-            output_file = "data/processed/data_profiling_report.md"
-            self.generate_report(output_file)
+            report_filename = reports_dir / f"profiling_{input_file.stem}_{timestamp}.md"
+            self.generate_md_report(str(report_filename))
+
+            

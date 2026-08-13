@@ -576,7 +576,7 @@ Les tests unitaires ont révélé que notre `CleanLogger` était trop "optimiste
 
 ## Étape 16 : Professionnalisation du Reporting et Sécurisation de l'Audit via `CleanerReporter` 📝🚀
 
-Après avoir stabilisé le moteur de nettoyage (`cleaner_engine`) et les tests unitaires, l'objectif est passé de la simple transformation de données à la **créabilité d'une preuve d'audit**. Un pipeline performant ne sert à rien si l'utilisateur final (le Data Analyst ou le métier) ne peut pas auditer les transformations effectuées.
+Après avoir stabilisé le moteur de nettoyage (`cleaner_engine`) et les tests unitaires, l'objectif est passé de la simple transformation de données à la **création d'une preuve d'audit**. Un pipeline performant ne sert à rien si l'utilisateur final (le Data Analyst ou le métier) ne peut pas auditer les transformations effectuées.
 
 ### 1. Le défi : Transformer des logs techniques en un rapport métier
 Jusqu'ici, la visibilité sur le nettoyage reposait sur des sorties textuelles dans la console, volatiles et difficiles à archiver. Le défi était de créer une classe `CleanerReporter` capable de transformer des objets complexes (`DataProfiler` et `CleanLogger`) en un document Markdown structuré, persistant et lisible par des non-développeurs.
@@ -590,7 +590,7 @@ Le module a été conçu pour extraire et structurer l'information selon trois p
 ### 3. Ingénierie de la Robustesse (Programmation Défensive)
 La création de ce module a nécessité l'application de concepts avancés pour garantir que le reporting ne devienne pas un point de rupture du pipeline :
 
-* **Sanitisation des données (Protection contre l'injection Markdown)** : 
+* **Sécurisation des données (Protection contre l'injection Markdown)** : 
   Un problème critique a été identifié : les données sources peuvent contenir des caractères réservés au formatage Markdown (comme `|`, `*` ou `_`). Si une colonne nommée `Prix | Promo` est traitée, le caractère `|` risque de briser la structure du tableau dans le rapport final. J'ai donc implémenté un mécanisme d'échappement systématique (`replace('|', '\\|')`) pour garantir l'intégrité visuelle du document, peu importe la "saleté" des données sources.
 
 * **Gestion de l'incertitude des interfaces (Interface Resilience)** : 
@@ -645,7 +645,7 @@ L'un des plus grands défis était la présence de données numériques "sales" 
     * Identifier les colonnes contenant des symboles monétaires (`€`, `$`, `£`).
     * Gérer la dualité des séparateurs (conversion automatique de la virgule `,` en point `.` pour le standard Python).
     * Supprimer les espaces de milliers (ex: `"1 000"` $\rightarrow$ `"1000"`) et les caractères parasites.
-* **Résultat** : Une augmentation drastique du taux de succès de la conversion `object -> float` sur des colonques critiques comme `montant_total`.
+* **Résultat** : Une augmentation drastique du taux de succès de la conversion `object -> float` sur des colonnes critiques comme `montant_total`.
 
 ### 2. Résolution du "Pandas Type Trap" (Le problème des entiers déguisés)
 Une problématique majeure a été identifiée sur les colonnes de comptage (`nb_nuits`, `nb_personnes`).
@@ -728,34 +728,40 @@ Le `DataProfiler` ne se contente plus de décrire ce qui est là ; il prévient 
 
 ---
 
-## Étape 21 : Évolution vers l'Interactivité et l'Exploration Multimodale (HTML & Graphiques) 交互 📈
+---
 
-Dans cette phase d'évolution, le projet a franchi un nouveau palier en passant d'un pipeline purement automatisé à une interface de pilotage interactive. L'objectif était de donner le contrôle à l'utilisateur final sur la nature du livrable produit.
+## Étape 21 : Évolution vers l'Exploration Multimodale : Rapport HTML Autonome & Visual Analytics 📊🚀
 
-### 1. Introduction de l'Interaction Utilisateur (Human-in-the-loop)
-Jusqu'alors, le pipeline exécutait une séquence figée. Nous avons introduit une couche d'interaction au point d'entrée (`main.py`) pour permettre un choix stratégique lors de l'exécution :
-* **Mode Standard (Markdown)** : Pour une documentation rapide, légère et compatible avec les environnements textuels (Git/Terminal).
-* **Mode Exploratoire (HTML)** : Pour une analyse riche, visuelle et destinée à être partagée avec des parties prenantes non-techniques.
+Dans cette phase d'évolution majeure, le projet a franchi un nouveau palier en passant d'un pipeline purement textuel à une interface de pilotage interactive et visuelle. L'objectif était de doter l'utilisateur final d'un outil capable de présenter des analyses riches sans aucune contrainte de dépendance de fichiers.
 
-Cette interaction transforme le script d'un outil de "traitement en tâche de fond" en un véritable outil d'**aide à la décision**.
+### 1. Introduction de l'Interactivité (Human-in-the-loop)
+Le pipeline n'est plus une séquence figée. Nous avons introduit une couche d'interaction au point d'entrée (`main.py`) permettant un choix stratégique lors de l'exécution :
+* **Mode Standard (Markdown)** : Pour une documentation technique rapide, légère et optimisée pour le versioning (Git/GitHub).
+* **Mode Exploratoire (HTML)** : Pour une analyse riche, visuelle, destinée à être partagée avec des parties prenantes non-techniques.
 
-### 2. Diversification du Format de Sortie : L'émergence du Rapport HTML
-Le déploiement d'un nouveau moteur de rendu HTML a permis de briser les limites textuelles du Markdown. Cette évolution repose sur une architecture de reporting duale :
-* **Persistance des métadonnées** : Le rapport HTML conserve l'intégralité de la structure logique, des statistiques et des audits (structure, types, valeurs manquantes) présents dans le format Markdown.
-* **Évolutivité du rendu** : L'implémentation d'une nouvelle couche `_generate_html_report` prépare le terrain pour une intégration de visualisations complexes sans altérer la logique de calcul du `DataProfiler`.
+### 2. Innovation Technique : Le Rapport HTML "Self-Contained"
+Le plus grand défi technique de cette étape était la génération d'un rapport HTML qui soit **totalement autonome**. 
 
-### 3. Préparation à l'Exploration Visuelle (Visual Analytics)
-Bien que la génération des graphiques soit en phase de stabilisation, l'infrastructure est désormais prête à accueillir des couches de visualisation dynamique :
-* **Architecture de stockage des assets** : Mise en place d'un système de gestion des chemins vers un dossier `graphs/` dédié, permettant au rapport HTML de référener des éléments visuels (Histogrammes, Boxplots, Barplots) de manière robuste.
-* **Vision prospective** : L'intégration programmée de bibliothèques comme `Seaborn` ou `Plotly` permettra, à court terme, de transformer le rapport statique en un tableau de bord analytique interactif.
+**La problématique initiale** : Traditionnellement, un rapport HTML pointe vers des images stockées dans un dossier `/graphs`. Cela crée une dépendance : si l'on déplace le fichier `.html` sans son dossier d'images, le rapport devient "aveugle".
+
+**La solution implémentée (Embedding via Base64)** : 
+Pour garantir que le rapport soit portable et s'affiche parfaitement partout (e-mail, navigateur local, cloud), nous avons implémenté une technique d'encodage avancé :
+* **Capture en mémoire** : Les graphiques (Histogrammes, Boxplots, Barplots) sont générés par `Matplotlib/Seaborn` et interceptés dans un buffer mémoire (`BytesIO`).
+* **Encodage Base64** : Chaque image est convertie en une chaîne de caractères textuelle (Base64) injectée directement dans la balise `<img src="data:image/png;base64,...">` du code HTML.
+* **Résultat** : Le fichier `.html` final contient l'intégralité des données et des visuels. Il suffit d'un seul fichier pour transporter toute l'analyse.
+
+### 3. Diversification de l'Analyse Visuelle
+L'intégration réussie des graphiques permet désormais une exploration multidimensionnelle :
+* **Distribution Numérique** : Utilisation de `Histplots` (avec KDE) pour visualiser la densité et les modes de distribution.
+* **Détection visuelle des Outliers** : Utilisation de `Boxplots` pour corroborer les calculs statistiques de l'algorithme IQR par une preuve visuelle immédiat.
+* **Analyse de Fréquence** : `Barplots` sur les colonnes catégorielles pour identifier instantanément les catégories dominantes et la structure du dataset.
 
 ### 4. Défis d'Ingénierie rencontrés
-* **Gestion de l'interactivité dans un script CLI** : Assurer que la prise de décision utilisateur (input) ne bloque pas l'exécution du pipeline en cas d'erreur de saisie.
-* **Dualité du rendu** : Maintenir une cohérence parfaite entre les deux formats de rapport pour garantir que le choix du format ne modifie pas la vérité scientifique des données présentées.
+* **Gestion de la charge mémoire** : L'encodage d'images dans le texte augmente la taille du fichier HTML. Nous avons dû optimener la résolution des graphiques pour maintenir un équilibre entre clarté visuelle et légèreté du document.
+* **Robustesse du pipeline de rendu** : Mise en place de blocs `try/except` autour de chaque génération de graphique pour garantir que, même si une colonne pose problème (ex: trop de données), le reste du rapport HTML est généré sans interruption.
 
 ### Résumé de la valeur ajoutée
-Le projet quitte le stade de "script de nettoyage" pour devenir un **système d'audit décisionnel**. L'utilisateur ne subit plus un processus automatique, il pilote une investigation sur la qualité de ses données, avec la possibilité de choisir entre la précision textuelle du Markdown et la richesse visuelle du HTML.
+Le projet quitte définitivement le stade de "script de nettoyage" pour devenir un **système d'audit décisionnel et visuel**. L'utilisateur ne subit plus un processus automatique ; il pilote une investigation complète, capable de produire des livrables professionnels, autonomes et prêts à être partagés en entreprise.
 
 ---
-*Projet en cours de développement - Expansion vers l'analyse visuelle avancée*
-
+*Projet en cours de développement - Capacité d'analyse visuelle et reporting autonome validée.*
