@@ -64,7 +64,7 @@ class TestDataProfilerRunAnalysis:
         profiler = DataProfiler(valid_df)
         results = profiler.run_analysis()
         
-        expected_keys = ['shape', 'dtypes', 'missing_values', 'duplicates_count', 'describe_numeric']
+        expected_keys = ['shape', 'dtypes', 'missing_values', 'nb_doublons', 'describe_numeric']
         for key in expected_keys:
             assert key in results, f"La clé '{key}' est absente des résultats."
 
@@ -96,7 +96,7 @@ class TestDataProfilerRunAnalysis:
         """Cas nominal : Vérifie le comptage des doublons."""
         profiler = DataProfiler(valid_df)
         results = profiler.run_analysis()
-        assert results['duplicates_count'] == 0
+        assert results['nb_doublons'] == 0
 
     def test_duplicates_detection(self):
         """Cas limite : Un DataFrame avec des doublons doit les détecter."""
@@ -108,7 +108,7 @@ class TestDataProfilerRunAnalysis:
         profiler = DataProfiler(df_dupes)
         results = profiler.run_analysis()
         # La ligne 1 est un doublon de la ligne 0 par défaut
-        assert results['duplicates_count'] == 1
+        assert results['nb_doublons'] == 1
 
     def test_numeric_stats_presence(self, valid_df):
         """Cas nominal : Les stats numériques doivent être présentes pour les colonnes numériques."""

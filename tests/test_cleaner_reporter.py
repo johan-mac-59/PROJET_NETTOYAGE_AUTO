@@ -10,215 +10,221 @@ sys.path.insert(0, 'src')
 
 from cleaner_reporter import CleanerReporter
 
-def test_cleaner_reporter_initialization():
-    """Test de l'initialisation du CleanerReporter"""
-    # Mock des dépendances
-    mock_profiler = Mock()
-    mock_logger = Mock()
-    
-    # Création de l'instance
-    reporter = CleanerReporter(mock_profiler, mock_logger)
-    
-    # Vérifications - CORRECTION : Maintenant le logger est bien celui passé en paramètre
-    assert reporter.profiler == mock_profiler
-    assert reporter.logger == mock_logger
 
-def test_get_header_with_valid_file_info():
-    """Test de _get_header avec des informations de fichier valides"""
-    mock_profiler = Mock()
-    mock_logger = Mock()
-    
-    # Configuration du profiler pour retourner des infos valides
-    mock_profiler.get_file_info.return_value = {'path': '/chemin/vers/fichier.csv'}
-    
-    reporter = CleanerReporter(mock_profiler, mock_logger)
-    header = reporter._get_header()
-    
-    assert "# Rapport de Nettoyage des Données" in header
-    assert "Date de génération :" in header
-    assert "`/chemin/vers/fichier.csv`" in header
+# ==========================================
+# FIXTURES : Données de test simulées
+# ==========================================
 
-def test_get_header_with_invalid_file_info():
-    """Test de _get_header avec des informations de fichier invalides"""
-    mock_profiler = Mock()
-    mock_logger = Mock()
-    
-    # Configuration du profiler pour lever une exception
-    mock_profiler.get_file_info.side_effect = AttributeError("Erreur de récupération")
-    
-    reporter = CleanerReporter(mock_profiler, mock_logger)
-    header = reporter._get_header()
-    
-    assert "# Rapport de Nettoyage des Données" in header
-    assert "`Inconnu`" in header
-
-def test_get_summary_section_with_profile():
-    """Test de _get_summary_section avec un profil valide"""
-    mock_profiler = Mock()
-    mock_logger = Mock()
-    
-    # Configuration du profiler
-    mock_profiler.has_profile.return_value = True
-    mock_profiler.get_profile.return_value = {
-        'total_rows': 1000,
-        'missing_values': 50
-    }
-    # CORRECTION : Le logger n'a pas de méthode get_summary, donc on simule avec des valeurs par défaut
-    # mais comme le code est corrigé, on peut simplement vérifier que ça ne plante pas
-    
-    reporter = CleanerReporter(mock_profiler, mock_logger)
-    summary = reporter._get_summary_section()
-    
-    assert "Résumé des Métriques" in summary
-    # Vérification qu'on n'a pas d'erreur dans le message
-    assert "Erreur" not in summary or "Format de profil non valide" not in summary
-
-def test_get_summary_section_without_profile():
-    """Test de _get_summary_section sans profil"""
-    mock_profiler = Mock()
-    mock_logger = Mock()
-    
-    # Configuration du profiler pour ne pas avoir de profil
-    mock_profiler.has_profile.return_value = False
-    
-    reporter = CleanerReporter(mock_profiler, mock_logger)
-    summary = reporter._get_summary_section()
-    
-    assert "Aucun profilage disponible" in summary
-
-def test_get_summary_section_with_invalid_profile():
-    """Test de _get_summary_section avec un profil invalide"""
-    mock_profiler = Mock()
-    mock_logger = Mock()
-    
-    # Configuration du profiler pour retourner un profil non valide
-    mock_profiler.has_profile.return_value = True
-    mock_profiler.get_profile.return_value = "pas_un_dictionnaire"
-    
-    reporter = CleanerReporter(mock_profiler, mock_logger)
-    summary = reporter._get_summary_section()
-    
-    # CORRECTION : Le code devrait maintenant retourner le message d'erreur
-    assert "Erreur : Format de profil non valide" in summary
-
-def test_get_operations_table_valid_operations():
-    """Test de _get_operations_table avec des opérations valides"""
-    mock_profiler = Mock()
-    mock_logger = Mock()
-    
-    # Configuration du logger
-    mock_logger.operations_log = [
-        {
-            'column': 'nom',
-            'action': 'suppression',
-            'details': 'valeurs vides',
-            'status': 'terminé'
-        },
-        {
-            'column': 'age',
-            'action': 'remplacement',
-            'details': 'valeurs négatives',
-            'status': 'en cours'
+@pytest.fixture
+def mock_profiler():
+    """Mock du profiler pour les tests."""
+    profiler = Mock()
+    profiler.profile_results = {
+        'shape': {'nb_lignes': 100, 'nb_colonnes': 5},
+        'nb_doublons': 5,
+        'missing_values': {
+            'count': {'col1': 10, 'col2': 5},
+            'percent': {'col1': 10.0, 'col2': 5.0}
         }
-    ]
-    
-    reporter = CleanerReporter(mock_profiler, mock_logger)
-    operations = reporter._get_operations_table()
-    
-    assert "Détail des Opérations" in operations
-    assert "`nom`" in operations
-    assert "suppression" in operations
-    assert "terminé" in operations
-
-def test_get_operations_table_invalid_logger():
-    """Test de _get_operations_table avec un logger invalide"""
-    mock_profiler = Mock()
-    mock_logger = Mock()
-    
-    # Supprimer l'attribut operations_log pour simuler un logger invalide
-    if hasattr(mock_logger, 'operations_log'):
-        delattr(mock_logger, 'operations_log')
-    
-    reporter = CleanerReporter(mock_profiler, mock_logger)
-    operations = reporter._get_operations_table()
-    
-    assert "Erreur : Logger invalide" in operations
-
-def test_get_operations_table_empty_operations():
-    """Test de _get_operations_table avec aucune opération"""
-    mock_profiler = Mock()
-    mock_logger = Mock()
-    
-    # Configuration du logger avec une liste vide
-    mock_logger.operations_log = []
-    
-    reporter = CleanerReporter(mock_profiler, mock_logger)
-    operations = reporter._get_operations_table()
-    
-    assert "Aucune opération enregistrée" in operations
-
-def test_generate_success():
-    """Test de la méthode generate avec succès"""
-    mock_profiler = Mock()
-    mock_logger = Mock()
-    
-    # Configuration
-    mock_profiler.has_profile.return_value = True
-    mock_profiler.get_profile.return_value = {'total_rows': 100}
-    # CORRECTION : Le code corrigé ne fait plus appel à get_summary sur le logger
-    
-    reporter = CleanerReporter(mock_profiler, mock_logger)
-    
-    # Utilisation d'un répertoire temporaire pour le test
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        output_path = os.path.join(tmp_dir, "test_report.md")
-        
-        result_path = reporter.generate(output_path)
-        
-        # Vérification que le fichier a été créé
-        assert os.path.exists(result_path)
-        # Vérification du contenu principal
-        content = open(result_path, 'r', encoding='utf-8').read()
-        assert "Rapport de Nettoyage des Données" in content
-
-def test_generate_with_exception():
-    """Test de la méthode generate avec une exception - version corrigée"""
-    mock_profiler = Mock()
-    mock_logger = Mock()
-    
-    # Configuration pour forcer une exception - on va simuler un problème d'écriture
-    # On utilise un chemin qui ne peut pas être écrit (ex: fichier déjà ouvert)
-    mock_profiler.has_profile.return_value = True
-    mock_profiler.get_profile.return_value = {'total_rows': 100}
-    
-    reporter = CleanerReporter(mock_profiler, mock_logger)
-    
-    # Pour forcer une exception, on va utiliser un chemin qui ne peut pas être créé
-    # ou simuler une erreur de système de fichiers
-    try:
-        # Test avec un chemin invalide pour forcer l'erreur
-        result = reporter.generate("/chemin/inexistant/fichier.md")
-        # Si cela ne lève pas d'exception, c'est peut-être parce que le répertoire est créé
-        # Dans ce cas, on vérifie simplement qu'une erreur est bien loggée
-        pass
-    except RuntimeError as e:
-        # C'est ce qu'on attend si l'erreur est correctement levée
-        assert "Erreur lors de la génération du rapport" in str(e)
-    except Exception as e:
-        # Si c'est une autre exception, c'est peut-être OK aussi
-        pass
-
-def test_get_summary_section_with_none_values():
-    """Test de _get_summary_section avec valeurs None"""
-    mock_profiler = Mock()
-    mock_logger = Mock()
-    
-    mock_profiler.has_profile.return_value = True
-    mock_profiler.get_profile.return_value = {
-        'total_rows': None,
-        'missing_values': 50
     }
-    
-    reporter = CleanerReporter(mock_profiler, mock_logger)
-    summary = reporter._get_summary_section()
-    assert "Résumé des Métriques" in summary
+    return profiler
+
+@pytest.fixture
+def mock_logger():
+    """Mock du logger pour les tests."""
+    logger = Mock()
+    return logger
+
+@pytest.fixture
+def sample_stats():
+    """Données d'exemple pour les statistiques de nettoyage."""
+    return {
+        'empty_cols_dropped': 2,
+        'whitespace_cleaned': 15,
+        'duplicates_removed': 3,
+        'types_converted': {'col1': ['object -> int']},
+        'missing_filled': {'col2': {'count': 5, 'method': 'fill_median_30.0'}},
+        'outliers_corrected': {'col3': 2}
+    }
+
+# ==========================================
+# TESTS NOMINAUX (Cas simples)
+# ==========================================
+
+class TestCleanerReporterInitialization:
+    def test_initialization_with_file_path(self, mock_profiler, mock_logger):
+        """Test de l'initialisation du CleanerReporter avec un chemin de fichier."""
+        reporter = CleanerReporter(mock_profiler, mock_logger, source_file_path="/chemin/vers/fichier.csv")
+        
+        assert reporter.profiler == mock_profiler
+        assert reporter.logger == mock_logger
+        assert reporter.source_file_path == "/chemin/vers/fichier.csv"
+
+    def test_initialization_without_file_path(self, mock_profiler, mock_logger):
+        """Test de l'initialisation du CleanerReporter sans chemin de fichier."""
+        reporter = CleanerReporter(mock_profiler, mock_logger)
+        
+        assert reporter.profiler == mock_profiler
+        assert reporter.logger == mock_logger
+        assert reporter.source_file_path is None
+
+
+class TestGetHeader:
+    def test_get_header_with_valid_file_path(self, mock_profiler, mock_logger):
+        """Test de _get_header avec un chemin de fichier valide."""
+        reporter = CleanerReporter(mock_profiler, mock_logger, source_file_path="/chemin/vers/fichier.csv")
+        header = reporter._get_header()
+        
+        assert "# Rapport de Nettoyage des Données" in header
+        assert "Date de génération :" in header
+        assert "`fichier.csv`" in header
+
+    def test_get_header_without_file_path(self, mock_profiler, mock_logger):
+        """Test de _get_header sans chemin de fichier."""
+        reporter = CleanerReporter(mock_profiler, mock_logger)
+        header = reporter._get_header()
+        
+        assert "# Rapport de Nettoyage des Données" in header
+        assert "Date de génération :" in header
+        assert "`Inconnu`" in header
+
+
+class TestGetSummarySection:
+    def test_get_summary_section_with_profile(self, mock_profiler, mock_logger):
+        """Test de _get_summary_section avec un profil valide."""
+        reporter = CleanerReporter(mock_profiler, mock_logger)
+        summary = reporter._get_summary_section()
+        
+        assert "Rapport de Nettoyage des Données" not in summary  # C'est le titre du rapport
+        assert "Lignes totales (avant)" in summary
+        assert "Colonnes totales" in summary
+        assert "Doublons trouvés" in summary
+        assert "Valeurs manquantes totales" in summary
+
+    def test_get_summary_section_without_profile(self, mock_logger):
+        """Test de _get_summary_section sans profil."""
+        profiler = Mock()
+        profiler.profile_results = None
+        
+        reporter = CleanerReporter(profiler, mock_logger)
+        summary = reporter._get_summary_section()
+        
+        assert "Aucun profilage disponible" in summary
+
+    def test_get_summary_section_with_exception(self, mock_logger):
+        """Test de _get_summary_section avec une exception."""
+        profiler = Mock()
+        profiler.profile_results = "not_a_dict"
+        
+        reporter = CleanerReporter(profiler, mock_logger)
+        summary = reporter._get_summary_section()
+        
+        assert "Erreur lors de la récupération des métriques" in summary
+
+
+class TestGetOperationsTable:
+    def test_get_operations_table_with_valid_stats(self, mock_profiler, mock_logger, sample_stats):
+        """Test de _get_operations_table avec des statistiques valides."""
+        reporter = CleanerReporter(mock_profiler, mock_logger)
+        operations = reporter._get_operations_table(sample_stats)
+        
+        assert "Détail des Opérations" in operations
+        assert "Colonnes vides supprimées" in operations
+        assert "Espaces nettoyés" in operations
+        assert "Doublons supprimés" in operations
+        assert "Conversions de types" in operations
+        assert "Valeurs manquantes comblées" in operations
+        assert "Valeurs aberrantes corrigées" in operations
+
+    def test_get_operations_table_with_empty_stats(self, mock_profiler, mock_logger):
+        """Test de _get_operations_table avec des statistiques vides."""
+        reporter = CleanerReporter(mock_profiler, mock_logger)
+        operations = reporter._get_operations_table({})
+        
+        assert "Aucune opération enregistrée" in operations
+
+    def test_get_operations_table_with_none_stats(self, mock_profiler, mock_logger):
+        """Test de _get_operations_table avec des statistiques None."""
+        reporter = CleanerReporter(mock_profiler, mock_logger)
+        operations = reporter._get_operations_table(None)
+        
+        assert "Aucune opération enregistrée" in operations
+
+
+class TestGenerateReport:
+    def test_generate_with_success(self, mock_profiler, mock_logger, sample_stats):
+        """Test de la méthode generate_with_stats avec succès."""
+        reporter = CleanerReporter(mock_profiler, mock_logger)
+        
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            output_path = os.path.join(tmp_dir, "test_report.md")
+            
+            result_path = reporter.generate_with_stats(output_path, sample_stats)
+            
+            # Vérification que le fichier a été créé
+            assert os.path.exists(result_path)
+            # Vérification du contenu principal
+            content = open(result_path, 'r', encoding='utf-8').read()
+            assert "Rapport de Nettoyage des Données" in content
+            assert "Détail des Opérations" in content
+
+    def test_generate_with_exception(self, mock_profiler, mock_logger):
+        """Test de la méthode generate_with_stats avec une exception."""
+        reporter = CleanerReporter(mock_profiler, mock_logger)
+        
+        # Test avec un chemin invalide pour forcer une erreur
+        with pytest.raises(RuntimeError):
+            reporter.generate_with_stats("/chemin/inexistant/fichier.md")
+
+
+class TestGenerateMethod:
+    def test_generate_method(self, mock_profiler, mock_logger):
+        """Test de la méthode generate (ancienne version)."""
+        reporter = CleanerReporter(mock_profiler, mock_logger)
+        
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            output_path = os.path.join(tmp_dir, "test_report.md")
+            
+            # La méthode generate devrait fonctionner sans erreur
+            result_path = reporter.generate(output_path)
+            assert os.path.exists(result_path)
+
+
+# ==========================================
+# TESTS LIMITES (Cas spéciaux)
+# ==========================================
+
+class TestEdgeCases:
+    def test_empty_profile_results(self, mock_logger):
+        """Test avec des résultats de profilage vides."""
+        profiler = Mock()
+        profiler.profile_results = {}
+        
+        reporter = CleanerReporter(profiler, mock_logger)
+        summary = reporter._get_summary_section()
+        
+        assert "Rapport de Nettoyage des Données" not in summary
+        # Vérifie qu'il n'y a pas d'erreur
+
+    def test_invalid_profile_results(self, mock_logger):
+        """Test avec des résultats de profilage invalides."""
+        profiler = Mock()
+        profiler.profile_results = "invalid_data"
+        
+        reporter = CleanerReporter(profiler, mock_logger)
+        summary = reporter._get_summary_section()
+        
+        assert "Erreur lors de la récupération des métriques" in summary
+
+    def test_partial_stats(self, mock_profiler, mock_logger):
+        """Test avec des statistiques partielles."""
+        partial_stats = {
+            'empty_cols_dropped': 1,
+            # Pas toutes les clés
+        }
+        
+        reporter = CleanerReporter(mock_profiler, mock_logger)
+        operations = reporter._get_operations_table(partial_stats)
+        
+        assert "Détail des Opérations" in operations
+        # Doit fonctionner sans erreur même avec des stats incomplètes

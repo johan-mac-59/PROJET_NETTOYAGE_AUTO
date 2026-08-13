@@ -47,7 +47,7 @@ class DataProfiler:
             }
 
         # 5. Aperçu
-        self.profile_results['sample_preview'] = self.df.head().to_markdown(index=False) if not self.df.empty else "Pas de données"
+        self.profile_results['sample_preview'] = self.df.head(10).to_markdown(index=False) if not self.df.empty else "Pas de données"
         
         return self.profile_results
 

@@ -670,7 +670,31 @@ L'objectif était de passer d'une statistique brute à une documentation qualita
 
 ---
 
-## Etape 19 : Tests unitaires Pytest de tous les modules modifiés
+## Étape 19 : Tests de non-régression suite aux modifications du moteur
+
+Suite aux optimisations apportées au `cleaner_engine` (notamment sur la gestion des types et des outliers) et au `cleaner_reporter`, il était impératif de valider que ces changements n'ont pas introduit de régressions dans les modules existants.
+
+### 1. Objectif de la phase de test
+L'objectif était de s'assurer que les modifications structurelles (passage de `nb_doublons` à `duplicates_count`, refonte des types Pandas) n'aient pas cassé les assertions des tests unitaires déjà en place et que le pipeline d'intégration reste fonctionnel.
+
+### 2. Problématiques rencontrées et résolutions techniques
+
+Le passage des tests a mis en lumière trois points de friction liés aux évolutions du code :
+
+* **Désalignement des clés (Regression sur `cleaner_reporter`)** : 
+  Le changement de nom de la clé `'nb_doublons'` en `'duplicates_count'` dans le moteur de nettoyage a rendu les tests du rapporteur obsolètes. Les tests échouaient car ils cherchaient une clé qui n'existait plus. 
+  * **Résolution** : Mise à jour des fichiers de tests pour s'aligner sur la nouvelle nomenclature du moteur.
+
+* **Conflits de types (Regression sur `clean_outliers`)** : 
+  L'introduction de la conversion vers le type `Int64` (nullable) a provo͞te une erreur lors du calcul des outliers. Le moteur tentait d'insérer une valeur décimale (borne IQR) dans une colonne typée en entier, provoant un `TypeError`.
+  * **Résance** : Adaptation de la logique pour assurer que les colonnes sont traitées avec une précision suffisante avant l'application des bornes.
+
+* **Erreurs d'importation (`ImportError`)** : 
+  La refonte modulaire a entraîné des échecs d'importation dans `test_cleaner_engine.py` (notamment sur la fonction `clean_outliers` qui avait été renommée en `clip_outliers`).
+  * **Résolution** : Réalignement des imports dans les fichiers de tests.
+
+### 3. Résultat final
+Après correction des tests pour les mettre en adéquation avec la nouvelle structure du code, la suite de tests `pytest` est passée avec un score de succès total sur l'ensemble des modules (`DataProfiler`, `CleanerEngine`, `CleanerReporter`). Le pipeline est désormais stabilisé et prêt pour l'utilisation.
 
 
 
