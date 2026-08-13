@@ -8,7 +8,7 @@
 
 ## 📊 Améliorations Fonctionnelles
 - **Support JSON** : Implémentation du chargement des fichiers .json via l'intégration de pd.read_json() dans le module file_loader.
-- **enrichir le rapport** : améliore le rapport de nettoyage pour etre plus explicite
+- **enrichir le rapport** : ajouter un nouveau DataProfiler à la suite du nettoyage
 - **améliorer la détection des dates** : être plus explicite sur le format 
 - **Séparer profiling et cleaning** : permettre de lancer un nettoyage des données après avoir pris le temps d'analyser la structure du dataset
 

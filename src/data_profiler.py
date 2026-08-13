@@ -63,9 +63,19 @@ class DataProfiler:
         
         # Types (tableau simple)
         md.append("\n## 🏷️ Colonnes et Types\n")
+
+        # On récupère les clés pour faire l'en-tête dynamiquement
+        columns = list(self.profile_results['dtypes'].keys())
+        if columns:
+            # Création dynamique de l'en-tête (pour 2 colonnes fixées)
+            header = f"| {'Colonne':<15} | {'Type':<10} |"
+            separator = "| " + "-"*13 + " | " + "-"*8 + " |"
+            
+            md.append(header)
+            md.append(separator)
+
         for col, dtype in self.profile_results['dtypes'].items():
             md.append(f"| {col} | {dtype} |")
-        md.insert(-1, "| --- | --- |") 
 
         # Missing Values (seulement si > 0)
         md.append("\n## ⚠️ Valeurs Manquantes\n")
