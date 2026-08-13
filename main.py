@@ -36,7 +36,7 @@ def main():
 
     # 3. PROFILAGE (Inséré avant le nettoyage pour avoir une trace fiable)
     try:
-        profiler = DataProfiler(initial_df)
+        profiler = DataProfiler(initial_df, input_file)
         # Nom du rapport avec timestamp pour éviter l'écrasement
         report_filename = reports_dir / f"profiling_{input_file.stem}_{datetime.now().strftime('%Y%m%d_%H%M')}.md"
         profiler.generate_report(str(report_filename))

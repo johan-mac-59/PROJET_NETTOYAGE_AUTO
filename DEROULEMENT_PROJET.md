@@ -696,6 +696,37 @@ Le passage des tests a mis en lumière trois points de friction liés aux évolu
 ### 3. Résultat final
 Après correction des tests pour les mettre en adéquation avec la nouvelle structure du code, la suite de tests `pytest` est passée avec un score de succès total sur l'ensemble des modules (`DataProfiler`, `CleanerEngine`, `CleanerReporter`). Le pipeline est désormais stabilisé et prêt pour l'utilisation.
 
+---
 
+## Étape 20 : Enrichissement du Profilage Statistique et Standardisation Terminologique 📊🔍
 
-*Projet en cours de développement*
+Dans cette phase d'amélioration continue, nous avons transcendé le simple rôle de "lecteur de structure" du `DataProfiler` pour en faire un véritable outil d'audit de qualité de données. L'objectif était d'apporter une couche d'intelligence analytique sur les colonnes catégorielles et de professionnaliser la communication des résultats.
+
+### 1. Évolution vers un Profilage Multidimensionnel
+Le module a été enrichi pour analyser la structure interne des données textuelles selon quatre piliers critiques :
+
+* **Cardinalité Avancée** : Calcul de la cardinalité absolue et relative (ratio par rapport au volume total).
+* **Indicateur de Remplissage (Sparsity Ratio)** : Intégration du taux de remplissage spécifique aux colonnes catégorielles.
+* **Analyse de la Variance (Skewness de Fréquence)** : Implémentation d'un indicateur de dominance. Si une catégorie représente plus de 90% des données, le module génère une alerte visuelle (⚠️) signalant une faible variance.
+* **Audit de Conformité Syntaxique** : Détection automatique des anomalies de formatage (espaces traînants, hétérogénéité de casse).
+
+### 2. Standardisation Terminologique (Approche Bilingue)
+Pour répondre aux standards de l'industrie et faciliter la lecture par des interlocuteurs internationaux, nous avons adopté une nomenclature **"Terme Anglais | Traduction Française"** dans tous les rapports Markdown :
+* *Exemple : "Sparsity Ratio | Taux de remplissage"*
+* *Exemple : "Skewness Frequency | Asymétrie de distribution"*
+
+Cette approche permet de conserver la précision technique du jargon Data Science tout en assurant une compréhension immédiate pour des décideurs francophones.
+
+### 3. Optimisation de la Présentation (Stratégie d'Affichage)
+Pour éviter l'infobésité sur des datasets massifs, nous avons implémenté un filtrage intelligent :
+* **Règle de Visibilité** : Si une colonne possède moins de 20 valeurs uniques, l'intégralité du catalogue est affichée. Au-delà, le module se concentre sur les **5 catégories les plus représentatives** avec leur poids relatif (%).
+
+### 4. Résolution de Problématiques de Robustesse
+* **Fiabilisation des calculs** : Correction d'une régression (`TypeError`) liée au calcul des pourcentages sur des objets flottants, en standardisant l'utilisation de `round()` sur des types Python natifs.
+* **Sécurisation des Outliers** : Renforcement du type de retour des bornes (conversion explicite en `float`) pour éviter les erreurs lors de la génération du tableau Markdown.
+
+### 5. Impact sur le Workflow
+Le pipeline passe d'un mode "Nettoyage aveugle" à un mode **"Audit & Action"**. L'analyste dispose désormais d'une vue pré-nettoyage qui lui permet de comprendre non seulement *ce qui est présent*, mais surtout *la qualité sémantique* des données.
+
+---
+*Projet en cours de développement - Amélioration continue de la précision analytique*
