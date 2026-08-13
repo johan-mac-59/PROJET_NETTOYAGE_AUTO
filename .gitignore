@@ -9,4 +9,7 @@ reports/
 
 # Virtual environments
 .venv
+
+# dossiers data
+data/
 *.csv
