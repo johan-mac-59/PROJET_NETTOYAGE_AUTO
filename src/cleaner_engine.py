@@ -265,6 +265,77 @@ def clean_duplicates(df: pd.DataFrame) -> Tuple[pd.DataFrame, int]:
     n_removed = n_before - len(df_cleaned)
     return df_cleaned, n_removed
 
+def clean_case_sensitivity(df: pd.DataFrame) -> Tuple[pd.DataFrame, dict]:
+    """
+    Unifie la casse des colonnes catégorielles (texte) en minuscules.
+    IGNORE les valeurs manquantes pour éviter de transformer 'NaN' en 'nan'.
+    """
+    if df.empty:
+        return df.copy(), {}
+    
+    df_cleaned = df.copy()
+    corrections = {}
+    
+    # On cible les colonnes textuelles (object ou string)
+    text_cols = df_cleaned.select_dtypes(include=['object', 'string']).columns
+    
+    for col in text_cols:
+        # 1. Créer un masque des valeurs NON manquantes
+        # .notna() fonctionne même sur les strings 'nan' si le dtype est object/string
+        valid_mask = df_cleaned[col].notna()
+        
+        if not valid_mask.any():
+            continue
+            
+        sample = df_cleaned[col][valid_mask].head(10)
+        
+        # FILTRES EXISTANTS (ID mixte, etc.)
+        is_id_like = False
+        for val in sample:
+            val_str = str(val)
+            if any(c.isalpha() for c in val_str) and any(c.isdigit() for c in val_str):
+                if len(val_str) < 10: 
+                    is_id_like = True
+                    break 
+        
+        if is_id_like:
+            continue
+
+        # Si l'échantillon valide ne contient aucune lettre, on skip.
+        # On convertit en string pour chercher des lettres
+        has_letters = sample.astype(str).str.contains('[a-zA-Z]').any()
+        if not has_letters:
+            continue
+
+        # 2. Appliquer lower() UNIQUEMENT sur les valeurs valides (non NaN)
+        # C'est important de ne pas toucher aux NaN pour ne pas créer de faux positifs
+        original_valid = df_cleaned[col][valid_mask].astype(str)
+        
+        lowered = original_valid.str.lower()
+        
+        # On compare : original != lowered
+        # Mais attention : "NaN" -> "nan" est techniquement un changement de string, mais pas de casse "réelle" pour une donnée manquante.
+        # Pour être propre, on ignore les changements qui ne concernent que la transformation 'NaN' -> 'nan'
+        changed_mask = original_valid != lowered
+        
+        # On retire les faux positifs liés aux NaN textuels
+        # Si la valeur originale est "NaN" ou "nan" et devient "nan", on considère que c'est pas une correction de casse "métier"
+        nan_text_mask = original_valid.str.lower().isin(['nan', 'none', 'na', 'null'])
+        
+        # On retire les NaN textuels des changements comptés si ils ne changent pas de sens (juste minuscule standard)
+        # En fait, le plus simple est de vérifier : la valeur a-t-elle DES LETTRES MINUSCULES qui étaient MAJUSCULES ?
+        # Une heuristique plus robuste : on garde le changement seulement si il contient des lettres alphabétiques visibles
+        real_change_mask = changed_mask & (original_valid.str.contains('[a-zA-Z]').fillna(False))
+
+        n_changes = real_change_mask.sum()
+        
+        if n_changes > 0:
+            # On applique la correction uniquement sur les valeurs valides qui ont réellement changé
+            df_cleaned.loc[df_cleaned[col].notna(), col] = lowered.where(real_change_mask, df_cleaned[col][valid_mask])
+            corrections[col] = int(n_changes)
+    
+    return df_cleaned, corrections
+
 def clean_missing_values(df: pd.DataFrame) -> Tuple[pd.DataFrame, dict]:
     """Nettoie les valeurs manquantes de manière intelligente."""
     if df.empty:
@@ -283,7 +354,7 @@ def clean_missing_values(df: pd.DataFrame) -> Tuple[pd.DataFrame, dict]:
                 df_cleaned.loc[mask, col] = median_val
                 actions[col] = {
                     'count': null_count,
-                    'method': f"fill_median_{median_val}" if pd.api.types.is_numeric_dtype(df_cleaned[col]) else f"fill_mode_{str(mode_val)}"
+                    'method': f"fill_median_{median_val}"  # Correction : on n'utilise pas mode_val ici
     }
             
             else:
@@ -295,7 +366,6 @@ def clean_missing_values(df: pd.DataFrame) -> Tuple[pd.DataFrame, dict]:
                     'count': null_count,
                     'method': f"fill_mode_{str(mode_val)}"
                 }
-
 
     return df_cleaned, actions
 
@@ -449,15 +519,15 @@ def ask_user_missing_values_correction(df: pd.DataFrame, stats: dict, profiler_r
     print("- Pour les colonnes numériques : médiane")
     print("- Pour les colonnes catégorielles : mode")
     print("Souhaitez-vous combler ces valeurs manquantes ?")
-    print("(Répondez par 'y' (oui) ou 'n' (non). Par défaut : 'y')")
+    print("(Répondez par 'y' (oui) ou 'n' (non). Par défaut : 'n')")
     
     while True:
-        reponse = input("⏳ Votre choix [y/n, entrée par défaut 'y'] : ").strip().lower()
+        reponse = input("⏳ Votre choix [y/n, entrée par défaut 'n'] : ").strip().lower()
         
         # Réponse par défaut si l'utilisateur appuie juste sur Entrée
         if reponse == "":
-            print("✅ Choix par défaut : Combler les valeurs manquantes")
-            return True
+            print("✅ Choix par défaut : Na pas combler les valeurs manquantes")
+            return False
             
         if reponse in ['y', 'yes', 'o', 'oui']:
             print("✅ Vous avez choisi de combler les valeurs manquantes.")
@@ -489,6 +559,7 @@ def run_all_cleaning_steps(df: pd.DataFrame, max_iterations: int = 5, correct_ou
     stats = {
         'empty_cols_dropped': 0,
         'whitespace_cleaned': 0,
+        'case_normalized': {},
         'types_fixed_pandas': {},
         'types_converted': {},
         'duplicates_removed': 0,
@@ -498,40 +569,77 @@ def run_all_cleaning_steps(df: pd.DataFrame, max_iterations: int = 5, correct_ou
 
     current_df = df.copy()
     
-    # 1. Nettoyage Forme (AVANT les types ! " 45" doit devenir 45)
-    current_df, n_spaces = clean_whitespace(current_df)
-    if n_spaces > 0:
-        stats['whitespace_cleaned'] += n_spaces
+    # Boucle de nettoyage automatique (sans interaction utilisateur)
+    for iteration in range(max_iterations):
+        print(f"\n🔄 Itération {iteration + 1}/{max_iterations}")
+        
+        # Sauvegarder l'état avant le nettoyage
+        previous_shape = current_df.shape
+        
+        # 1. Nettoyage Forme (AVANT les types ! " 45" doit devenir 45)
+        current_df, n_spaces = clean_whitespace(current_df)
+        if n_spaces > 0:
+            stats['whitespace_cleaned'] += n_spaces
 
-    # 2. Correction des types "Pandas Trap" 
-    current_df, fix_stats = fix_numeric_types(current_df)
-    if fix_stats:
-        stats['types_fixed_pandas'].update(fix_stats)
+        # 2. Correction des types "Pandas Trap" 
+        current_df, fix_stats = fix_numeric_types(current_df)
+        if fix_stats:
+            stats['types_fixed_pandas'].update(fix_stats)
 
-    # 3. Conversion Types (CRITIQUE : on transforme " 45" en int/float maintenant)
-    current_df, conversions = clean_types(current_df)
-    if conversions:
-        stats['types_converted'].update(conversions)
+        # 3. Conversion Types (CRITIQUE : on transforme " 45" en int/float maintenant)
+        current_df, conversions = clean_types(current_df)
+        if conversions:
+            stats['types_converted'].update(conversions)
 
-    # 4. Nettoyage Structurel (Colonnes vides)
-    current_df, n_dropped = clean_empty_columns(current_df)
-    if n_dropped > 0:
-        stats['empty_cols_dropped'] += n_dropped
+        # 4. Nettoyage Structurel (Colonnes vides)
+        current_df, n_dropped = clean_empty_columns(current_df)
+        if n_dropped > 0:
+            stats['empty_cols_dropped'] += n_dropped
 
-    # 5. Doublons (Avant IQR/Median pour ne pas fausser les bornes)
-    current_df, n_dups = clean_duplicates(current_df)
-    if n_dups > 0:
-        stats['duplicates_removed'] += n_dups
+        # 5. Nettoyage de la casse (à faire après espaces et types mais avant doublons)
+        current_df, case_corrections = clean_case_sensitivity(current_df)
+        if case_corrections:
+            stats['case_normalized'].update(case_corrections)
 
-    # 6. Missing Values (Remplissage) - Exécuté ici de manière explicite
+        # 6. Doublons (Avant IQR/Median pour ne pas fausser les bornes)
+        current_df, n_dups = clean_duplicates(current_df)
+        if n_dups > 0:
+            stats['duplicates_removed'] += n_dups
+
+        # 7. Vérification si on continue ou non
+        # Si aucune modification n'a été faite (ni ligne ni colonne ni type), on arrête
+        current_shape = current_df.shape
+        
+        # Vérifier s'il y a eu des changements dans la structure
+        changes_detected = (
+            n_spaces > 0 or 
+            len(fix_stats) > 0 or 
+            len(conversions) > 0 or 
+            n_dropped > 0 or 
+            sum(case_corrections.values()) > 0 or 
+            n_dups > 0 or
+            current_shape != previous_shape  # Si le nombre de lignes ou colonnes a changé
+        )
+        
+        if not changes_detected:
+            print("✅ Aucune modification détectée. Arrêt anticipé du nettoyage.")
+            break
+    
+    # 8. Missing Values (Remplissage) - Exécuté ici de manière explicite
     if fill_missing:
         current_df, fillings = clean_missing_values(current_df)
         if fillings:
             stats['missing_filled'].update(fillings)
+        else:
+            # Si le traitement est actif mais qu'il n'y avait pas de valeurs à combler, 
+            # on garde un dictionnaire vide (cohérent avec le cas où il y en avait)
+            pass 
     else:
         print("⚠️ Remplissage des valeurs manquantes ignoré par l'utilisateur.")
+        # Format cohérent : on indique explicitement que c'est ignoré
+        stats['missing_filled'] = {'ignored': True}
 
-    # 7. Outliers IQR (En dernier, sur données numérées et propres) 
+    # 9. Outliers IQR (En dernier, sur données numérées et propres) 
     if correct_outliers:
         current_df, outliers = clip_outliers(current_df)
         if outliers:
@@ -539,7 +647,7 @@ def run_all_cleaning_steps(df: pd.DataFrame, max_iterations: int = 5, correct_ou
                 stats['outliers_corrected'][col] = stats['outliers_corrected'].get(col, 0) + count
     else:
         print("⚠️ Correction des outliers ignorée par l'utilisateur.")
-        # On indique simplement dans les stats que c'est ignoré
-        stats['outliers_corrected']['ignored'] = 'Corrections ignorées par l\'utilisateur'
+        # On indique simplement dans les stats que c'est ignoré avec un format cohérent
+        stats['outliers_corrected'] = {'ignored': True}  # Format cohérent
     
     return current_df, stats

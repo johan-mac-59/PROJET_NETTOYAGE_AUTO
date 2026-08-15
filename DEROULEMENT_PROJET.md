@@ -793,5 +793,70 @@ L'introduction de ces validations manuelles a renforcé la **résilience** du pr
 
 ---
 
+## Étape 23 : Uniformisation de la Casse et Standardisation Textuelle 🔡🔍
+
+Dans cette phase, nous avons intégré une nouvelle brique de nettoyage stratégique pour traiter l'une des sources de bruit les plus insidieuses dans les données catégorielles : l'incohérence de casse (ex: "Paris", "PARIS", "paris").
+
+### 1. Le défi : La fragmentation des catégories
+Dans les jeux de données réels, les colonnes textuelles souffrent souvent d'une standardisation défaillante. Pour un analyste, cela crée deux problèmes maj :
+* **Explosion de la cardinalité** : Une même catégorie est comptée comme plusieurs entités distinctes, faussant les analyses de fréquence (Top-N).
+* **Échec des jointures et filtres** : Les recherches ou les regroupements échouent si la casse n'est pas rigoureusement identique.
+
+### 2. Implémentation d'un moteur de normalisation intelligent
+L'enjeu n'était pas simplement d'appliquer un `.lower()` massif, ce qui aurait été destructeur pour certains types de données. Nous avons conçu une fonction `clean_case_sensitivity()` dotée d'une intelligence contextuelle :
+
+* **Protection des identifiants (Heuristique ID-like)** : Le moteur analyse l'échantillon de chaque colonne textuelle. Si une colonne présente un mélange de chiffres et de lettres (ex: `"R43873"`), elle est automatiquement exclue du processus de normalisation pour préserver l'intégrité des clés primaires ou des codes clients.
+* **Filtrage sémantique** : Le moteur vérunifie la présence de caractères alphabétiques avant d'agir, évitant ainsi des opérations inutiles sur des colonnes purement numériques ou symboliques.
+* **Préservation des valeurs manquantes** : Une gestion rigoureuse via un masque booléen (`notna()`) garantit que les `NaN` ne sont pas transformés en chaînes de caractères `"nan"`, préservant ainsi la structure propre du DataFrame.
+
+### 3. Intégration au pipeline et traçabilité
+L'intégration a suivi les principes de robustesse établis précédemment :
+* **Mise à jour des statistiques** : Le `CleanLogger` et le `CleanerReporter` ont été enrichis pour compter précisément le nombre de colonnes impactées et le volume de modifications effectuées.
+* **Ordre d'exécution optimisé** : Cette étape est placée stratégiquement *après* le nettoyage des espaces (`clean_whitespace`) mais *avant* la détection des doublons, car une casse uniforme est indispensable pour que `drop_duplicates()` identifie correctement les lignes identiques.
+
+### 4. Impact sur la qualité du dataset
+Cette améliation transforme radicalement la fiabilité de l'analyse :
+* **Fiabilité du regroupement (Grouping)** : Les statistiques par région ou par catégorie deviennent exactes et sans doublons fantômes.
+* **Auditabilité renforcée** : Le rapport final documente désormais explicitement l'effort de standardisation textuelle, offrant une preuve de la qualité du nettoyage effectué.
+
+---
+
+## Étape 24 : Résolution de la Fragilité du Reporting et Sécurisation des Types (Bug Fix & Robustness) 🛠️⚠️
+
+Cette étape a marqué un tournant critique dans le projet : le passage d'un système qui "fonctionne sous conditions" à un système capable de gérer l'incertitude et les choix de l'utilisateur sans interruption brutale.
+
+### 1. Analyse de la régression : Le paradoxe du "Type Error"
+Lors de l'introduction de l'interactivité (permettant à l'utilisateur d'ignorer certains nettoyages), une erreur fatale est apparue dans le pipeline : `unsupported operand type(s) for +: 'int' and 'str'`.
+
+* **L'origine du problème** : Dans la phase de décision, si l'utilisateur choisissait de ne pas traiter les valeurs aberrantes (outliers), le moteur stockait une chaîne descriptive (`'Corrections ignorées...'`) dans un dictionnaire censé contenir des entiers.
+* **La rupture de contrat** : Le module `CleanLogger`, qui générait le résumé textuel, tentait d'agréger (sommer) toutes les valeurs du dictionnaire pour afficher un total. L'addition d'un entier (le nombre d'outliers trouvés) et d'une chaîne de caractères (le message d'annulation) provoquait l'arrêt immédiat du programme.
+
+### 2. Stratégie de résolution : Standardisation et Programmation Défensive
+Pour résoudre ce problème, nous n'avons pas seulement corrigé un bug, nous avons refondu la logique de communication entre le moteur (`Engine`) et les rapports (`Logger/Reporter`).
+
+#### A. Refonte du protocole de stockage (Contract-Based Programming)
+Nous avons abandonné l'utilisation de messages textuels au sein des structures numériques. Désormais, le moteur utilise un format structuré et prévisible :
+* **Pour les cas nominaux** : `{'colonne_A': 10, 'colonne_B': 5}` (uniquement des entiers).
+* **Pour les cas d'annulation** : `{'ignored': True}`.
+Cette approche garantit que la structure de donnée est toujours prévisible pour les modules suivants.
+
+#### B. Implémentation de l'Audit Sécurisé dans le Logger
+Le `CleanLogger` a été doté d'une logique de "vérification de type" (Type Checking) avant toute opération arithmétique :
+* **Analyse du contenu** : Avant de sommer, le logger vérifie si la clé `'ignored'` est présente ou si les valeurs sont numériques.
+* **Fallback robuste** : En cas de structure inattendue, le système utilise un bloc `try/except` pour afficher `"Données non valides"` au lieu de planter, garantant ainsi que le pipeline termine toujours son exécution et sauvegarde les données.
+
+#### C. Uniformisation du Reporting (Markdown & Terminal)
+Nous avons synchronisé les deux modes de rapportage :
+* **Rapport Terminal (Textuel)** : Affiche désormais clairement *"Traitement ignoré par l'utilisateur"* au lieu d'un nombre erroné ou d'une erreur système.
+* **Rapport Markdown (Audit)** : Le tableau détaillé est capable de switcher entre un mode "comptable" (affichage des quantités) et un mode "informatif" (affichage du motif d'annulation), assurant une traçabilité sans faille pour l'auditeur.
+
+### 3. Impact sur la maturité du projet
+Cette étape a apporté trois bénéfices majeurs :
+1. **Fiabilité (Reliability)** : Le pipeline est désormais "crash-proof" face aux choix utilisateur imprévus.
+2. **Transparence (Observability)** : L'utilisateur a une visibilité totale non seulement sur ce qui a été fait, mais aussi sur ce qui a été délibérément écarté.
+3. **Maintenabilité** : La séparation stricte entre les données numériques et les messages de statut facilite l'ajout de nouvelles fonctionnalités sans risque de régression.
+
+---
+
 
 *Projet en cours de développement - Capacité d'analyse visuelle et reporting autonome validée.*

@@ -3,77 +3,78 @@ from typing import Dict
 
 
 class CleanLogger:
-    """Génère un rapport de nettoyage structuré."""
-
-    def __init__(self, initial_df: pd.DataFrame, stats: Dict):
-        """
-        Args:
-            initial_df: Le DataFrame avant nettoyage.
-            stats: Les statistiques retournées par run_all_cleaning_steps.
-        """
+    """Gère les logs et l'affichage des statistiques du nettoyage."""
+    
+    def __init__(self, initial_df: pd.DataFrame, stats: dict):
         self.initial_df = initial_df
-        self.stats = stats or {}  # Gestion des stats None
-        # On calcule les infos "après" basées sur la différence de forme et la structure
-        self.final_shape = None # Sera défini au moment du calcul final
+        self.stats = stats
+        self.final_shape = None
         self.final_columns = None
 
     def update_final_state(self, final_df: pd.DataFrame):
-        """Appelé après le nettoyage pour avoir l'état final."""
+        """Met à jour les statistiques finales."""
         self.final_shape = final_df.shape
         self.final_columns = list(final_df.columns)
 
     def get_summary(self) -> str:
-        """Retourne le résumé textuel du rapport."""
+        """Génère un résumé des opérations effectuées."""
+        if self.final_shape is None or self.final_columns is None:
+            return "⚠️ Rapport non finalisé. Veuillez exécuter update_final_state().\n"
         
-        if self.final_shape is None:
-            return "⚠️ Rapport non finalisé. Veuillez appeler update_final_state() d'abord."
+        summary = f"## RAPPORT DE NETTOYAGE DE DONNÉES\n\n"
+        summary += f"📊 Lignes : {self.initial_df.shape[0]} → {self.final_shape[0]}\n"
+        summary += f"📑 Colonnes : {self.initial_df.shape[1]} → {self.final_shape[1]}\n\n"
         
-        # 1. Métriques globales
-        lines = []
-        lines.append("=" * 60)
-        lines.append("RAPPORT DE NETTOYAGE DE DONNÉES")
-        lines.append("=" * 60)
-        lines.append(f"📊 Lignes: {self.initial_df.shape[0]} → {self.final_shape[0]} ({self._format_delta(self.initial_df.shape[0], self.final_shape[0])})")
-        lines.append(f"📑 Colonnes: {self.initial_df.shape[1]} → {self.final_shape[1]} ({self._format_delta(self.initial_df.shape[1], self.final_shape[1])})")
-        lines.append("-" * 60)
-
-        # 2. Opérations détaillées
-        
-        # Colonnes supprimées (>95% NaN)
-        empty_cols = self.stats.get('empty_cols_dropped', 0)
-        if empty_cols and empty_cols > 0:
-            lines.append(f"🗑️ Colonnes supprimées (vides): {empty_cols}")
-
-        # Doublons
-        duplicates = self.stats.get('duplicates_removed', 0)
-        if duplicates and duplicates > 0:
-            lines.append(f"🔄 Doublons supprimés: {duplicates}")
-
-        # Types convertis
-        types_converted = self.stats.get('types_converted', {})
-        if types_converted:
-            conv_details = ", ".join([f"{k} ({v})" for k, v in types_converted.items()])
-            lines.append(f"🎨 Types convertis: [{conv_details}]")
-
-        # Valeurs manquantes comblées
-        missing_filled = self.stats.get('missing_filled', {})
-        if missing_filled:
-            filled_cols = list(missing_filled.keys())
-            lines.append(f"💧 Valeurs manquantes comblées dans: {', '.join(filled_cols)}")
-
-        # Outliers corrigés
-        outliers_corrected = self.stats.get('outliers_corrected', {})
-        if outliers_corrected:
-            outlier_details = ", ".join([f"{k} ({v})" for k, v in outliers_corrected.items()])
-            lines.append(f"📈 Outliers corrigés (IQR): [{outlier_details}]")
-
-        # Nettoyage espaces
-        whitespace_cleaned = self.stats.get('whitespace_cleaned', 0)
-        if whitespace_cleaned and whitespace_cleaned > 0:
-            lines.append(f"🧼 Colonnes avec espaces nettoyés: {whitespace_cleaned}")
-
-        lines.append("=" * 60)
-        return "\n".join(lines)
+        # Ajout des opérations
+        if self.stats.get('empty_cols_dropped', 0) > 0:
+            summary += f"🗑️ Colonnes supprimées (vides) : {self.stats['empty_cols_dropped']}\n"
+        if self.stats.get('whitespace_cleaned', 0) > 0:
+            summary += f"🧼 Espaces nettoyés : {self.stats['whitespace_cleaned']}\n"
+        if self.stats.get('case_normalized', {}):
+            summary += f"🔤 Casse uniformisée : {len(self.stats['case_normalized'])} colonnes\n"
+        if self.stats.get('duplicates_removed', 0) > 0:
+            summary += f"🔄 Doublons supprimés : {self.stats['duplicates_removed']}\n"
+        if self.stats.get('types_fixed_pandas', {}):
+            summary += f"🔧 Corrections Pandas Trap : {len(self.stats['types_fixed_pandas'])} colonnes\n"
+        if self.stats.get('types_converted', {}):
+            summary += f"🎨 Types convertis : {len(self.stats['types_converted'])} colonnes\n"
+        if self.stats.get('missing_filled', {}):
+            missing_stats = self.stats['missing_filled']
+            
+            # Vérifier si le traitement a été ignoré par l'utilisateur
+            if isinstance(missing_stats, dict) and 'ignored' in missing_stats:
+                summary += f"💧 Valeurs manquantes comblées : Traitement ignoré par l'utilisateur\n"
+            else:
+                # Calcul normal du total de valeurs comblées
+                total_missing = 0
+                for v in missing_stats.values():
+                    if isinstance(v, dict) and 'count' in v:
+                        total_missing += v['count']
+                    elif isinstance(v, (int, float)):
+                        total_missing += v
+                summary += f"💧 Valeurs manquantes comblées : {total_missing}\n"
+        if self.stats.get('outliers_corrected', {}):
+            # Gestion sécurisée des outliers corrigés
+            outliers_corr = self.stats['outliers_corrected']
+            
+            # Si c'est un dictionnaire avec la clé 'ignored', cela signifie que l'utilisateur a ignoré
+            if isinstance(outliers_corr, dict) and 'ignored' in outliers_corr:
+                summary += f"📈 Outliers corrigés (IQR) : Traitement ignoré par l'utilisateur\n"
+            else:
+                # Calcul classique des outliers
+                total_outliers = 0
+                try:
+                    # On vérifie que toutes les valeurs sont numériques avant d'additionner
+                    if isinstance(outliers_corr, dict):
+                        for value in outliers_corr.values():
+                            if isinstance(value, (int, float)):
+                                total_outliers += value
+                    summary += f"📈 Outliers corrigés (IQR) : {total_outliers}\n"
+                except (TypeError, ValueError):
+                    # En cas d'erreur de type, on indique que les données sont invalides
+                    summary += f"📈 Outliers corrigés (IQR) : Données non valides\n"
+            
+        return summary
 
     def get_detailed_table(self, final_df: pd.DataFrame = None) -> pd.DataFrame:
         """Retourne un DataFrame résumé des changements (optionnel, pour affichage tabulaire)."""
@@ -94,10 +95,15 @@ class CleanLogger:
         
         return pd.DataFrame(type_changes)
 
-    def _format_delta(self, initial: int, final: int) -> str:
-        delta = final - initial
-        sign = "+" if delta >= 0 else ""
-        return f"{sign}{delta}"
+    def _format_delta(self, old_val, new_val):
+        """Formatte la différence entre deux valeurs."""
+        delta = new_val - old_val
+        if delta > 0:
+            return f"+{delta}"
+        elif delta < 0:
+            return f"{delta}"
+        else:
+            return "+0"
 
 
 def generate_and_print_report(initial_df: pd.DataFrame, stats: Dict, final_df: pd.DataFrame):
@@ -105,4 +111,3 @@ def generate_and_print_report(initial_df: pd.DataFrame, stats: Dict, final_df: p
     reporter = CleanLogger(initial_df, stats)
     reporter.update_final_state(final_df)
     print(reporter.get_summary())
-

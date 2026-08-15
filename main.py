@@ -1,15 +1,12 @@
-# src/main.py
-
 from pathlib import Path
-from datetime import datetime
 import logging
 
 # Import des modules du projet
 from src.file_loader import load_file
-from src.cleaner_engine import run_all_cleaning_steps, ask_user_outlier_correction, ask_user_missing_values_correction # Ajout de la fonction
+from src.cleaner_engine import run_all_cleaning_steps, ask_user_outlier_correction, ask_user_missing_values_correction
 from src.data_profiler import DataProfiler
 from src.cleaner_logger import generate_and_print_report
-from src.cleaner_reporter import CleanerReporter, generate_enhanced_report
+from src.cleaner_reporter import generate_enhanced_report
 
 def main():
     # 1. Configuration (Pathlib pour les chemins robustes sous Windows)

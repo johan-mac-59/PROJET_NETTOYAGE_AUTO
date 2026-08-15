@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from pathlib import Path
 from datetime import datetime
 import logging
@@ -28,19 +27,16 @@ class CleanerReporter:
     def _get_summary_section(self) -> str:
         """Résumé des métriques globales (Avant/Après)."""
         try:
-            # On récupère les résultats de l'analyse déjà effectuée
             profile_results = self.profiler.profile_results
             
             if not profile_results:
                 return "## Résumé Global\n\n*Aucun profilage disponible.*\n\n"
             
-            # Extraction des métriques disponibles
             shape = profile_results.get('shape', {})
             nb_lignes_avant = shape.get('nb_lignes', 'N/A')
             nb_colonnes = shape.get('nb_colonnes', 'N/A')
             nb_doublons = profile_results.get('nb_doublons', 0)
             
-            # Pour les valeurs manquantes
             missing_values = profile_results.get('missing_values', {})
             total_missing = sum(missing_values.get('count', {}).values()) if missing_values else 0
             
@@ -54,98 +50,185 @@ class CleanerReporter:
 """
         except Exception as e:
             return f"## Résumé des Métriques\n\n*Erreur lors de la récupération des métriques : {str(e)}*\n\n"
-    
+
     def _get_operations_table(self, stats) -> str:
         """Transforme les statistiques de nettoyage en tableau Markdown détaillé."""
         if not stats:
             return "## 2. Détail des Opérations\n\n*Aucune opération enregistrée.*\n\n"
         
-        try:
-            # Construction du tableau avec les informations de nettoyage
-            table_content = "## 2. Détail des Opérations\n\n"
-            
-            # Colonnes vides supprimées
-            if 'empty_cols_dropped' in stats and stats['empty_cols_dropped'] > 0:
+        table_content = "## 2. Détail des Opérations\n\n"
+        has_operations = False
+
+        # --- Helper sécurisé pour additionner ---
+        def safe_add(num1, num2):
+            try:
+                return int(num1) + int(num2)
+            except (ValueError, TypeError):
+                return 0
+
+        # --- Colonnes vides supprimées ---
+        if 'empty_cols_dropped' in stats and stats['empty_cols_dropped']:
+            val = int(stats['empty_cols_dropped'])
+            if val > 0:
                 table_content += f"### Colonnes vides supprimées\n\n"
-                table_content += f"Total de colonnes supprimées : {stats['empty_cols_dropped']}\n\n"
-            
-            # Espaces nettoyés
-            if 'whitespace_cleaned' in stats and stats['whitespace_cleaned'] > 0:
+                table_content += f"Total de colonnes supprimées : {val}\n\n"
+                has_operations = True
+
+        # --- Espaces nettoyés ---
+        if 'whitespace_cleaned' in stats and stats['whitespace_cleaned']:
+            val = int(stats['whitespace_cleaned'])
+            if val > 0:
                 table_content += f"### Espaces nettoyés\n\n"
-                table_content += f"Total d'espaces nettoyés : {stats['whitespace_cleaned']}\n\n"
+                table_content += f"Total d'espaces nettoyés : {val}\n\n"
+                has_operations = True
                 
-            # Doublons supprimés
-            if 'duplicates_removed' in stats and stats['duplicates_removed'] > 0:
-                table_content += f"### Doublons supprimés\n\n"
-                table_content += f"Total de doublons supprimés : {stats['duplicates_removed']}\n\n"
-                
-            # Conversions de types
-            if 'types_converted' in stats and stats['types_converted']:
-                table_content += f"### Conversions de types\n\n"
-                table_content += f"Total de conversions effectuées : {len(stats['types_converted'])}\n\n"
-                table_content += "| Colonne | Type de conversion |\n"
-                table_content += "| :--- | :--- |\n"
-                for type_name, columns in stats['types_converted'].items():
-                    # Si c'est une chaîne de caractères qui contient les colonnes
-                    if isinstance(columns, list):
-                        table_content += f"| {type_name} | {', '.join(columns)} |\n"
-                    else:
-                        # Sinon on affiche le type converti comme colonne concernée
-                        table_content += f"| {type_name} | - |\n"
-                table_content += "\n"
-                
-            # Valeurs manquantes comblées
-            if 'missing_filled' in stats and stats['missing_filled']:
-                table_content += f"### Valeurs manquantes comblées\n\n"
-                # Calcul du total (somme des counts)
-                total_missing = 0
-                try:
-                    total_missing = sum([v['count'] if isinstance(v, dict) else v for v in stats['missing_filled'].values()])
-                except TypeError:
-                    total_missing = "N/A"
-                table_content += f"Total de valeurs manquantes comblées : {total_missing}\n\n"
-                table_content += "| Colonne | Nombre de valeurs comblées | Méthode utilisée |\n"
-                table_content += "| :--- | :---: | :--- |\n"
-                for col, info in stats['missing_filled'].items():
-                    if isinstance(info, dict):
-                        count = info['count']
-                        method = info['method']
-                    else:
-                        count = info
-                        method = "inconnue"
-                    table_content += f"| {col} | {count} | {method} |\n"
-                table_content += "\n"
-                
-            # Valeurs aberrantes corrigées
-            if 'outliers_corrected' in stats and stats['outliers_corrected']:
-                table_content += f"### Valeurs aberrantes corrigées\n\n"
-                # On fait une somme uniquement si les valeurs sont numériques
-                total_outliers = 0
-                try:
-                    total_outliers = sum(stats['outliers_corrected'].values())
-                except TypeError:
-                    # Si ce n'est pas numérique, on ne compte pas
-                    total_outliers = "N/A"
-                table_content += f"Total de valeurs aberrantes corrigées : {total_outliers}\n\n"
-                table_content += "| Colonne | Nombre de valeurs aberrantes corrigées |\n"
+        # --- Caisse uniformisée ---
+        case_norm = stats.get('case_normalized', {})
+        if case_norm:
+            total_changes = sum(int(c) for c in case_norm.values() if isinstance(c, (int, float)))
+            if total_changes > 0:
+                table_content += f"### Uniformisation de la casse\n\n"
+                table_content += f"Total de colonnes avec casse corrigée : {len(case_norm)}\n\n"
+                table_content += "| Colonne | Modifications |\n"
                 table_content += "| :--- | :---: |\n"
-                for col, count in stats['outliers_corrected'].items():
+                for col, count in case_norm.items():
                     try:
-                        # Vérifier si c'est un nombre
-                        int(count)
-                        table_content += f"| {col} | {count} |\n"
+                        table_content += f"| {col} | {int(count)} |\n"
                     except (ValueError, TypeError):
-                        # Si ce n'est pas un nombre, on affiche le type de valeur
-                        table_content += f"| {col} | {count} (type: {type(count).__name__}) |\n"
+                        table_content += f"| {col} | N/A |\n"
                 table_content += "\n"
+                has_operations = True
                 
-            if not table_content.endswith("## 2. Détail des Opérations\n\n"):
-                return table_content
+        # --- Doublons supprimés ---
+        if 'duplicates_removed' in stats and stats['duplicates_removed']:
+            val = int(stats['duplicates_removed'])
+            if val > 0:
+                table_content += f"### Doublons supprimés\n\n"
+                table_content += f"Total de doublons supprimés : {val}\n\n"
+                has_operations = True
+                
+        # --- Conversions de types ---
+        types_conv = stats.get('types_converted', {})
+        if types_conv:
+            table_content += f"### Conversions de types\n\n"
+            table_content += f"Total de conversions effectuées : {len(types_conv)}\n\n"
+            table_content += "| Type converti | Colonnes concernées |\n"
+            table_content += "| :--- | :--- |\n"
+            
+            for type_name, col_names in types_conv.items():
+                if isinstance(col_names, list):
+                    cols_display = ', '.join([str(c) for c in col_names])
+                else:
+                    cols_display = str(col_names) # Au cas où c'est un string direct
+                table_content += f"| {type_name} | {cols_display} |\n"
+            table_content += "\n"
+            has_operations = True
+            
+        # --- Valeurs manquantes comblées (Missing Values) ---
+        missing_filled = stats.get('missing_filled', {})
+        
+        if missing_filled:
+            # Vérifier si le traitement a été ignoré
+            is_ignored = False
+            ignored_message = ""
+            
+            if isinstance(missing_filled, dict) and 'ignored' in missing_filled:
+                is_ignored = True
+                ignored_message = "Traitement ignoré par l'utilisateur"
             else:
-                return "## 2. Détail des Opérations\n\n*Aucune opération enregistrée.*\n\n"
+                # Calcul normal du total de valeurs comblées
+                total_missing = 0
+                for info in missing_filled.values():
+                    try:
+                        if isinstance(info, dict):
+                            total_missing += int(info.get('count', 0))
+                        elif isinstance(info, (int, float)):
+                            total_missing += int(info)
+                    except (ValueError, TypeError):
+                        pass 
+
+                # Si des valeurs ont été comblées, on affiche le détail
+                if total_missing > 0:
+                    table_content += f"### Valeurs manquantes comblées\n\n"
+                    table_content += f"**Total de valeurs manquantes comblées :** {total_missing}\n\n"
+                    table_content += "| Colonne | Nb valeurs comblées | Méthode utilisée |\n"
+                    table_content += "| :--- | :---: | :--- |\n"
+                    
+                    for col, info in missing_filled.items():
+                        try:
+                            if isinstance(info, dict):
+                                c = int(info.get('count', 0))
+                                m = str(info.get('method', 'inconnue'))
+                            else:
+                                c = int(info)
+                                m = "inconnue"
+                            table_content += f"| {col} | {c} | {m} |\n"
+                        except (ValueError, TypeError):
+                            table_content += f"| {col} | ? | ? |\n"
+                    table_content += "\n"
+                    has_operations = True
+                else:
+                    # Pas de valeurs à combler mais le traitement était actif
+                    table_content += f"### Valeurs manquantes comblées\n\n"
+                    table_content += f"*Aucune valeur manquante nécessitant un comblement.*\n\n"
+                    has_operations = True
+
+            # Si ignoré par l'utilisateur, on affiche le message spécifique
+            if is_ignored:
+                table_content += f"### Valeurs manquantes comblées\n\n"
+                table_content += f"⚠️ **Traitement des valeurs manquantes non effectué.**\n\n"
+                table_content += f"*(Raison : {ignored_message})*\n\n"
                 
-        except Exception as e:
-            return f"## 2. Détail des Opérations\n\n*Erreur lors de la génération du tableau : {str(e)}*\n\n"
+        # --- Valeurs aberrantes corrigées (Outliers) - Nouvelle logique ---
+        outliers_corr = stats.get('outliers_corrected', {})
+        if outliers_corr:
+            # Vérification : Est-ce que l'utilisateur a ignoré le traitement ?
+            is_ignored = False
+            ignored_message = ""
+            
+            # Vérifier si c'est un format ignoré (comme dans cleaner_engine.py)
+            if isinstance(outliers_corr, dict) and 'ignored' in outliers_corr:
+                is_ignored = True
+                ignored_message = "Traitement ignoré par l'utilisateur"
+            else:
+                # Ancienne logique : vérification sur les valeurs
+                for msg in outliers_corr.values():
+                    if isinstance(msg, str) and ("ignore" in msg.lower() or "non effectuée" in msg.lower()):
+                        is_ignored = True
+                        ignored_message = msg
+                        break
+
+            if is_ignored:
+                table_content += f"### Valeurs aberrantes corrigées\n\n"
+                table_content += f"⚠️ **Traitement des valeurs aberrantes non effectué.**\n\n"
+                table_content += f"*(Raison : {ignored_message})*\n\n"
+            else:
+                # Le traitement a eu lieu, on affiche le tableau classique
+                total_outliers = 0
+                for count in outliers_corr.values():
+                    try:
+                        total_outliers += int(count)
+                    except (ValueError, TypeError):
+                        pass 
+                
+                table_content += f"### Valeurs aberrantes corrigées\n\n"
+                table_content += f"**Total de valeurs aberrantes traitées :** {total_outliers}\n\n"
+                table_content += "| Colonne | Nb outliers / Statut |\n"
+                table_content += "| :--- | :---: |\n"
+                
+                for col, count in outliers_corr.items():
+                    try:
+                        val = int(count)
+                        table_content += f"| {col} | {val} corrigés |\n"
+                    except (ValueError, TypeError):
+                        table_content += f"| {col} | Données non valides |\n"
+                table_content += "\n"
+            has_operations = True
+
+        if not has_operations:
+            return "## 2. Détail des Opérations\n\n*Aucune opération enregistrée.*\n\n"
+        
+        return table_content
             
     def demander_generation_rapport(self) -> bool:
         """
