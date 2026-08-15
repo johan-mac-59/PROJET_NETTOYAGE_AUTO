@@ -342,9 +342,142 @@ def clip_outliers(df: pd.DataFrame) -> Tuple[pd.DataFrame, dict]:
 
     return df, corrections
 
-def run_all_cleaning_steps(df: pd.DataFrame, max_iterations: int = 5) -> Tuple[pd.DataFrame, dict]:
+def ask_user_outlier_correction(df: pd.DataFrame, stats: dict, profiler_results: dict = None) -> bool:
+    """
+    Demande à l'utilisateur s'il veut corriger les outliers.
+    
+    Args:
+        df: DataFrame à nettoyer
+        stats: Dictionnaire contenant les statistiques de nettoyage actuelles
+        profiler_results: Résultats du DataProfiler pour connaître les outliers détectés
+        
+    Returns:
+        bool: True si l'utilisateur veut corriger, False sinon
+    """
+    print("\n" + "="*60)
+    print("⚠️  Gestion des Valeurs Aberrantes (Outliers)")
+    print("="*60)
+    
+    # Récupération des outliers détectés dans le profiler
+    outlier_cols = {}
+    
+    if profiler_results and 'outliers' in profiler_results:
+        outlier_cols = profiler_results['outliers']
+    elif 'outliers_corrected' in stats:
+        # Si on a déjà les outliers corrigés, on les récupère
+        outlier_cols = stats['outliers_corrected']
+    
+    # Si on n'a pas d'outliers détectés
+    if not outlier_cols or (isinstance(outlier_cols, dict) and len(outlier_cols) == 0):
+        print("✅ Aucune valeur aberrante détectée dans les données.")
+        return False
+    
+    # Afficher les outliers détectés
+    print(f"🔍 {len(outlier_cols)} colonne(s) contient(ent) des valeurs aberrantes :")
+    
+    # Si c'est un dict avec le format de sortie du profiler
+    if isinstance(outlier_cols, dict):
+        for col, info in outlier_cols.items():
+            if isinstance(info, dict) and 'count' in info:
+                print(f"   • {col}: {info['count']} outliers détectés")
+            else:
+                # Format pour les anciens résultats
+                print(f"   • {col}: {info} outliers détectés")
+    else:
+        # Format simplifié
+        print(f"   • Détectés dans {len(outlier_cols)} colonnes")
+    
+    print("\nLes valeurs aberrantes sont corrigées par la méthode IQR (clipping).")
+    print("Cela peut modifier les bornes statistiques et altérer les distributions.")
+    print("Souhaitez-vous corriger ces valeurs aberrantes ?")
+    print("(Répondez par 'y' (oui) ou 'n' (non). Par défaut : 'n')")
+    
+    while True:
+        reponse = input("⏳ Votre choix [y/n, entrée par défaut 'n'] : ").strip().lower()
+        
+        # Réponse par défaut si l'utilisateur appuie juste sur Entrée
+        if reponse == "":
+            print("❌ Choix par défaut : Ne pas corriger les outliers")
+            return False
+            
+        if reponse in ['y', 'yes', 'o', 'oui']:
+            print("✅ Vous avez choisi de corriger les valeurs aberrantes.")
+            return True
+        elif reponse in ['n', 'no', 'non']:
+            print("❌ Vous avez choisi de ne pas corriger les outliers.")
+            return False
+        else:
+            print("⚠️ Veuillez répondre par 'y' (oui) ou 'n' (non).")
+            print("⏳  Appuyez sur Entrée pour choisir 'n' par défaut.")
+
+def ask_user_missing_values_correction(df: pd.DataFrame, stats: dict, profiler_results: dict = None) -> bool:
+    """
+    Demande à l'utilisateur s'il veut combler les valeurs manquantes.
+    
+    Args:
+        df: DataFrame à nettoyer
+        stats: Dictionnaire contenant les statistiques de nettoyage actuelles
+        profiler_results: Résultats du DataProfiler pour connaître les valeurs manquantes
+        
+    Returns:
+        bool: True si l'utilisateur veut combler, False sinon
+    """
+    print("\n" + "="*60)
+    print("⚠️  Gestion des Valeurs Manquantes")
+    print("="*60)
+    
+    # Compter les valeurs manquantes totales
+    total_missing = df.isnull().sum().sum()
+    
+    if total_missing == 0:
+        print("✅ Aucune valeur manquante détectée dans les données.")
+        return False
+    
+    print(f"🔍 {total_missing} valeurs manquantes détectées dans l'ensemble du dataset")
+    
+    # Afficher le nombre par colonne
+    missing_by_col = df.isnull().sum()
+    missing_by_col = missing_by_col[missing_by_col > 0]
+    
+    if len(missing_by_col) > 0:
+        print("Répartition par colonne :")
+        for col, count in missing_by_col.items():
+            percentage = (count / len(df)) * 100
+            print(f"   • {col}: {count} ({percentage:.1f}%)")
+    
+    print("\nLes valeurs manquantes sont comblées automatiquement :")
+    print("- Pour les colonnes numériques : médiane")
+    print("- Pour les colonnes catégorielles : mode")
+    print("Souhaitez-vous combler ces valeurs manquantes ?")
+    print("(Répondez par 'y' (oui) ou 'n' (non). Par défaut : 'y')")
+    
+    while True:
+        reponse = input("⏳ Votre choix [y/n, entrée par défaut 'y'] : ").strip().lower()
+        
+        # Réponse par défaut si l'utilisateur appuie juste sur Entrée
+        if reponse == "":
+            print("✅ Choix par défaut : Combler les valeurs manquantes")
+            return True
+            
+        if reponse in ['y', 'yes', 'o', 'oui']:
+            print("✅ Vous avez choisi de combler les valeurs manquantes.")
+            return True
+        elif reponse in ['n', 'no', 'non']:
+            print("❌ Vous avez choisi de ne pas combler les valeurs manquantes.")
+            return False
+        else:
+            print("⚠️ Veuillez répondre par 'y' (oui) ou 'n' (non).")
+            print("⏳  Appuyez sur Entrée pour choisir 'y' par défaut.")
+
+def run_all_cleaning_steps(df: pd.DataFrame, max_iterations: int = 5, correct_outliers: bool = True, fill_missing: bool = True) -> Tuple[pd.DataFrame, dict]:
     """
     Applique les nettoyages de manière itérative et ordonnée.
+    
+    Args:
+        df: DataFrame à nettoyer
+        max_iterations: Nombre maximum d'itérations
+        correct_outliers: Booléen pour décider si on corrige les outliers
+        fill_missing: Booléen pour décider si on remplit les valeurs manquantes
     
     Ordre stratégique pour éviter les erreurs en cascade :
     1. Forme (espaces) -> Pour préparer la conversion de types
@@ -356,7 +489,7 @@ def run_all_cleaning_steps(df: pd.DataFrame, max_iterations: int = 5) -> Tuple[p
     stats = {
         'empty_cols_dropped': 0,
         'whitespace_cleaned': 0,
-        'types_fixed_pandas': {}, # Nouvelle clé pour tracer les corrections de type Pandas
+        'types_fixed_pandas': {},
         'types_converted': {},
         'duplicates_removed': 0,
         'missing_filled': {},
@@ -365,56 +498,48 @@ def run_all_cleaning_steps(df: pd.DataFrame, max_iterations: int = 5) -> Tuple[p
 
     current_df = df.copy()
     
-    for i in range(max_iterations):
-        any_change = False
+    # 1. Nettoyage Forme (AVANT les types ! " 45" doit devenir 45)
+    current_df, n_spaces = clean_whitespace(current_df)
+    if n_spaces > 0:
+        stats['whitespace_cleaned'] += n_spaces
 
-        # 1. Nettoyage Forme (AVANT les types ! " 45" doit devenir 45)
-        current_df, n_spaces = clean_whitespace(current_df)
-        if n_spaces > 0:
-            stats['whitespace_cleaned'] += n_spaces
-            any_change = True
+    # 2. Correction des types "Pandas Trap" 
+    current_df, fix_stats = fix_numeric_types(current_df)
+    if fix_stats:
+        stats['types_fixed_pandas'].update(fix_stats)
 
-        # 2. Correction des types "Pandas Trap" (Ex: float64 -> Int64 si possible)
-        # On fait ça après le nettoyage des espaces pour être sûr que les données sont propres,
-        # mais avant la conversion stricte de clean_types.
-        current_df, fix_stats = fix_numeric_types(current_df)
-        if fix_stats:
-            stats['types_fixed_pandas'].update(fix_stats)
-            any_change = True
+    # 3. Conversion Types (CRITIQUE : on transforme " 45" en int/float maintenant)
+    current_df, conversions = clean_types(current_df)
+    if conversions:
+        stats['types_converted'].update(conversions)
 
-        # 3. Conversion Types (CRITIQUE : on transforme " 45" en int/float maintenant)
-        current_df, conversions = clean_types(current_df)
-        if conversions:
-            stats['types_converted'].update(conversions)
-            any_change = True
+    # 4. Nettoyage Structurel (Colonnes vides)
+    current_df, n_dropped = clean_empty_columns(current_df)
+    if n_dropped > 0:
+        stats['empty_cols_dropped'] += n_dropped
 
-        # 4. Nettoyage Structurel (Colonnes vides)
-        current_df, n_dropped = clean_empty_columns(current_df)
-        if n_dropped > 0:
-            stats['empty_cols_dropped'] += n_dropped
-            any_change = True
+    # 5. Doublons (Avant IQR/Median pour ne pas fausser les bornes)
+    current_df, n_dups = clean_duplicates(current_df)
+    if n_dups > 0:
+        stats['duplicates_removed'] += n_dups
 
-        # 5. Doublons (Avant IQR/Median pour ne pas fausser les bornes)
-        current_df, n_dups = clean_duplicates(current_df)
-        if n_dups > 0:
-            stats['duplicates_removed'] += n_dups
-            any_change = True
-
-        # 6. Missing Values (Remplissage)
+    # 6. Missing Values (Remplissage) - Exécuté ici de manière explicite
+    if fill_missing:
         current_df, fillings = clean_missing_values(current_df)
         if fillings:
             stats['missing_filled'].update(fillings)
-            any_change = True
+    else:
+        print("⚠️ Remplissage des valeurs manquantes ignoré par l'utilisateur.")
 
-        # Si rien n'a changé, on arrête (convergence)
-        if not any_change:
-            break
-    
     # 7. Outliers IQR (En dernier, sur données numérées et propres) 
-    current_df, outliers = clip_outliers(current_df)
-    if outliers:
-        for col, count in outliers.items():
-            stats['outliers_corrected'][col] = stats['outliers_corrected'].get(col, 0) + count
-        any_change = True
-
+    if correct_outliers:
+        current_df, outliers = clip_outliers(current_df)
+        if outliers:
+            for col, count in outliers.items():
+                stats['outliers_corrected'][col] = stats['outliers_corrected'].get(col, 0) + count
+    else:
+        print("⚠️ Correction des outliers ignorée par l'utilisateur.")
+        # On indique simplement dans les stats que c'est ignoré
+        stats['outliers_corrected']['ignored'] = 'Corrections ignorées par l\'utilisateur'
+    
     return current_df, stats

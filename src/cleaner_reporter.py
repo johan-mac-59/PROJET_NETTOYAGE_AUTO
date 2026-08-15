@@ -146,6 +146,37 @@ class CleanerReporter:
                 
         except Exception as e:
             return f"## 2. Détail des Opérations\n\n*Erreur lors de la génération du tableau : {str(e)}*\n\n"
+            
+    def demander_generation_rapport(self) -> bool:
+        """
+        Demande à l'utilisateur s'il veut générer le rapport de nettoyage.
+        
+        Returns:
+            bool: True si l'utilisateur veut générer, False sinon.
+        """
+        print("\n" + "="*60)
+        print("📊 Génération du Rapport de Nettoyage")
+        print("="*60)
+        print("Souhaitez-vous générer le rapport détaillé de nettoyage ?")
+        print("(Cela créera un fichier avec les statistiques et comparaisons)")
+        print("Répondez par 'y' (oui) ou 'n' (non).")
+        print("Par défaut : 'y' (générer le rapport)")
+        
+        while True:
+            reponse = input("⏳ Votre choix [y/n, entrée par défaut 'y'] : ").strip().lower()
+            
+            # Réponse par défaut si l'utilisateur appuie juste sur Entrée
+            if reponse == "":
+                print("✅ Choix par défaut : Générer le rapport")
+                return True
+                
+            if reponse in ['y', 'yes', 'o', 'oui']:
+                return True
+            elif reponse in ['n', 'no', 'non']:
+                return False
+            else:
+                print("⚠️ Veuillez répondre par 'y' (oui) ou 'n' (non).")
+                print("⏳  Appuyez sur Entrée pour choisir 'y' par défaut.")
     
     def generate_with_stats(self, output_path: str, stats: dict = None) -> str:
         """Génère le fichier Markdown complet avec les statistiques."""
@@ -175,6 +206,12 @@ def generate_enhanced_report(profiler, logger, reports_dir, input_file, stats):
         # Initialisation du reporter avec le chemin du fichier source
         reporter = CleanerReporter(profiler, logger, source_file_path=str(input_file))
         
+        # --- Nouvelle logique : Demander à l'utilisateur ---
+        if not reporter.demander_generation_rapport():
+            print("✅ Rapport de nettoyage ignoré. Suite du pipeline...")
+            return # On ne fait rien si l'utilisateur refuse
+        
+        # --- Si oui, on continue avec la génération ---
         # Nom du rapport final avec timestamp
         final_report_filename = reports_dir / f"cleaning_report_{input_file.stem}_{datetime.now().strftime('%Y%m%d_%H%M')}.md"
         

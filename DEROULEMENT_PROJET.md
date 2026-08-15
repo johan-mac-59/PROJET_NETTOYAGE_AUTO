@@ -764,4 +764,34 @@ L'intégration réussie des graphiques permet désormais une exploration multidi
 Le projet quitte définitivement le stade de "script de nettoyage" pour devenir un **système d'audit décisionnel et visuel**. L'utilisateur ne subit plus un processus automatique ; il pilote une investigation complète, capable de produire des livrables professionnels, autonomes et prêts à être partagés en entreprise.
 
 ---
+
+## Étape 22 : Vers un Nettoyage Piloté par l'Expert (Human-in-the-loop) 🧠👤
+
+Dans cette phase, le projet a connu une mutation philosophique majeure. Nous sommes passés d'un automate de nettoyage "boîte noire" à un **assistant décisionnel interactif**. L'objectif n'est plus que la machine décide seule, mais qu'elle fournisse l'intelligence nécessaire pour que l'analyste valide ou rejette chaque transformation critique.
+
+### 1. Le passage du mode "Batch" au mode "Piloté"
+Jusqu'alors, le pipeline exécutait une séquence de tâches prédéfinies sans solliciter l'utilisateur. Si une erreur de logique survenait (ex: suppression trop agressive d'outliers), elle était définitive dans le fichier de sortie.
+
+Nous avons introduit une couche d'**interactivité décisionnelle** à deux points stratégiques du pipeline :
+* **Gestion des Valeurs Manquantes** : Avant le remplissage, l'analyste est informé du volume et de la répartition des trous dans les données. Il peut alors décider de maintenir la structure brute ou d'autoriser le comblement (médiane/mode).
+* **Gestion des Outliers** : Le système ne se contente plus de "clipper" les valeurs ; il présente un audit préalable des colonnes impactées, laissant le choix final à l'expert.
+
+### 2. L'intelligence contextuelle au service de l'analyste
+L'interaction n'est pas une simple boîte de dialogue ; elle est **contextualisée** grâce aux résultats du `DataProfiler` :
+* **Aide à la décision (Decision Support)** : Au lieu d'un message générique, le script présente des faits précis (ex: *"150 valeurs manquantes détectées dans la colonne 'Prix'"*). Cela transforme l'utilisateur de simple spectateur en décideur éclairé.
+* **Gestion des options par défaut** : Pour préserver la fluidité du workflow, nous avons implémenté des réponses par défaut (ex: `[y/n, entrée par défaut 'y']`). Cela permet une exécution rapide pour les cas standards, tout en offrant un contrôle total pour les cas complexes.
+
+### 3. Transformation de la responsabilité : De la Machine à l'Analyste
+Cette évolution change radicalement la nature du projet :
+* **Ancien paradigcu** : Le script est un agent autonome qui "fait le travail". Risque de perte de traçabilité métier.
+* **Nouveau paradigme** : Le script est un **outil d'aide à la décision (Decision Support System)**. L'analyste reste le maître d'œuvre, tandis que le code s'occupe de l'exécution technique et de la surveillance des anomalies.
+
+### 4. Impact sur la fiabilité du pipeline
+L'introduction de ces validations manuelles a renforcé la **résilience** du projet :
+* **Réduction du risque de régression métier** : On évite les transformations qui, bien que statistiquement correctes (ex: imputer une médiane), pourraient être sémantiquement fausses dans un contexte métier spécifique.
+* **Auditabilité humaine** : Chaque décision prise durant l'exécution est capturée et peut être documentée, renforçant la chaîne de confiance entre la donnée brute et le rapport final.
+
+---
+
+
 *Projet en cours de développement - Capacité d'analyse visuelle et reporting autonome validée.*

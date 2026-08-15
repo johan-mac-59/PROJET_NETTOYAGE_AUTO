@@ -615,14 +615,14 @@ class DataProfiler:
 
     def interactive_report_choice(self, reports_dir, input_file):
         """Permet de choisir le format de rapport de manière interactive"""
-        print("\n--- 📊 Choix du Format de Rapport ---")
+        print("\n--- 📊 Choix du Format de Rapport d'analyse ---")
         print("Souhaitez-vous un rapport en format Markdown (.md) ou HTML avec graphiques ?")
         print("1. Markdown (.md)")
         print("2. HTML avec graphiques")
         
         import datetime
         
-        choice = input("Votre choix (1 ou 2) : ").strip()
+        choice = input("⏳ Votre choix (1 ou 2) : ").strip()
         
         timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M')
         
