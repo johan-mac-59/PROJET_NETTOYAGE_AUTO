@@ -11,7 +11,7 @@ from src.cleaner_reporter import generate_enhanced_report
 def main():
     # 1. Configuration (Pathlib pour les chemins robustes sous Windows)
     base_dir = Path(__file__).parent
-    input_file = base_dir / "data/raw/reservations_rivage_brut.csv"
+    input_file = base_dir / "data/raw/movies.json"
     output_file = base_dir / "data/processed/dataset_nettoye.csv"
     reports_dir = base_dir / "data/reports"
     
@@ -23,15 +23,8 @@ def main():
         return
 
     # 2. Chargement
-    try:
-        initial_df = load_file(str(input_file))
-        print(f"✅ Fichier chargé ({initial_df.shape[0]} lignes, {initial_df.shape[1]} colonnes)")
-    except FileNotFoundError:
-        print(f"❌ Impossible de charger {input_file}")
-        return
-    except ValueError as e:
-        print(f"❌ Erreur de format : {e}")
-        return
+    initial_df = load_file(str(input_file))
+    print(f"✅ Fichier chargé ({initial_df.shape[0]} lignes, {initial_df.shape[1]} colonnes)")
 
     # 3. PROFILAGE (Inséré avant le nettoyage pour avoir une trace fiable)
     try:

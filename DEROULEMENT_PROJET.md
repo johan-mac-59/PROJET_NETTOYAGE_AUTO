@@ -858,5 +858,35 @@ Cette étape a apporté trois bénéfices majeurs :
 
 ---
 
+## Étape 25 : Extension de l'Intelligence de Lecture : Support Multi-Format & Détection de Structure (JSON/JSONL) 📂🚀
+
+Dans cette phase d'évolution, le pipeline a franchi une étape majeure en brisant la barrière du format CSV. L'objectif était d'augmenter la polyvalence du `file_loader` pour qu'il puisse absorber des flux de données modernes (APIs, logs, NoSQL) sans intervention humaine.
+
+### 1. Le défi de l'hétérogénéité des sources
+Jusqu'alors, le pipeline était optimisé pour les structures tabulaires classiques (lignes/colonnes). L'introduction du format **JSON** (objet unique) et **JSONL** (flux de lignes) posait deux problèmes critiques :
+* **Complexité structurelle** : Un JSON n'est pas qu'une simple liste ; il peut être un d'objet complexe où les données utiles sont cachées sous une clé spécifique (ex: `{"metadata": ..., "data": [...]}`).
+* **Détection aveugle** : Comment savoir si un fichier sans extension est un CSV mal formaté ou un flux JSONL sans changer la logique de l'utilisateur ?
+
+### 2. Implémentation de l'Intelligence de Chargement
+Nous avons transformé le `file_loader` en un moteur de détection multi-couches :
+
+* **L'architecture de secours (Fallback Strategy) avec analyse de signature** : 
+    * Si l'extension est explicite (`.json`, `.jsonl`), le moteur utilise des chargeurs spécialisés.
+    * Si l'extension est inconnue ou absente, le moteur active un **scanner de structure** qui analyse les premiers octets du fichier pour identifier les signatures `{` ou `[` caractéristiques du format JSON.
+* **Le moteur `_load_json_manual` (Deep Discovery & Unwrapping)** : 
+    Pour pallier les limites de `pd.read_json()` face à des structures non-linéaires, nous avons implémenté une logique de "dépliage". Le moteur parcourt les niveaux du dictionnaire pour extraire la première liste d'objets valide, permettant de transformer des JSON complexes (dictionnaires contenant des listes) en un format tabulaire exploitable par Pandas.
+* **Le module `_load_jsonl` (Stream Processing)** : 
+    Implémentation d'un lecteur de lignes robuste capable de traiter des fichiers massifs (JSON Lines) en ignorant les lignes vides ou corrompues, garantant que le pipeline ne s'arrête pas à la première erreur de syntaxe rencontrée dans un flux de logs.
+
+### 3. Résilience et Robustesse (Error Containment)
+L'intégration de nouveaux formats a nécessité un renforcement des mécanismes de protection :
+* **Validation de type** : Utilisation de `isinstance(data, list)` et `isinstance(data, dict)` pour éviter les crashs lors de la transformation en DataFrame.
+* **Isolation des erreurs** : Le processus de détection automatique est encapsulé dans des blocs `try/except` pour s'assurer que si la détection échoue, le système retourne une erreur métier explicite (ValueError) plutôt qu'une exception Python obscure.
+
+### 4. Impact sur la valeur métier
+Le pipeline est passé d'un outil de **nettoyage de fichiers** à un outil de **consommation de données**. L'analyste peut désormais injecter des sorties d'APIs, des exports de bases de données NoSQL ou des fichiers de configuration directement dans le workflow de nettoyage, sans aucune modification du code source.
+
+---
+
 
 *Projet en cours de développement - Capacité d'analyse visuelle et reporting autonome validée.*
