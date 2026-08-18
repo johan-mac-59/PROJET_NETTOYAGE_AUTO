@@ -11,7 +11,7 @@ from src.cleaner_reporter import generate_enhanced_report
 def main():
     # 1. Configuration (Pathlib pour les chemins robustes sous Windows)
     base_dir = Path(__file__).parent
-    input_file = base_dir / "data/raw/movies.json"
+    input_file = base_dir / "data/raw/ai_student_impact.csv"
     output_file = base_dir / "data/processed/dataset_nettoye.csv"
     reports_dir = base_dir / "data/reports"
     

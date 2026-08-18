@@ -7,7 +7,6 @@
 - **enrichir le DataProfiler** : renseigner le fichier source, mettre des graphiques (répartition, heatmap, dispersion, outliers...) **en cours**
 
 ## 📊 Améliorations Fonctionnelles
-- **Support JSON** : en cours de réalisation
 - **enrichir le rapport** : ajouter un nouveau DataProfiler à la suite du nettoyage
 - **améliorer la détection des dates** : être plus explicite sur le format 
 - **Séparer profiling et cleaning** : permettre de lancer un nettoyage des données après avoir pris le temps d'analyser la structure du dataset

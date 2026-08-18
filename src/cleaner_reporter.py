@@ -3,7 +3,7 @@ from datetime import datetime
 import logging
 
 class CleanerReporter:
-    """Génère un rapport Markdown (.md) détaillé du nettoyage des données."""
+    """Génère un rapport détaillé du nettoyage des données."""
     
     def __init__(self, profiler, logger, source_file_path=None):
         self.profiler = profiler
@@ -179,7 +179,7 @@ class CleanerReporter:
                 table_content += f"⚠️ **Traitement des valeurs manquantes non effectué.**\n\n"
                 table_content += f"*(Raison : {ignored_message})*\n\n"
                 
-        # --- Valeurs aberrantes corrigées (Outliers) - Nouvelle logique ---
+        # --- Valeurs aberrantes corrigées (Outliers) ---
         outliers_corr = stats.get('outliers_corrected', {})
         if outliers_corr:
             # Vérification : Est-ce que l'utilisateur a ignoré le traitement ?
@@ -289,7 +289,7 @@ def generate_enhanced_report(profiler, logger, reports_dir, input_file, stats):
         # Initialisation du reporter avec le chemin du fichier source
         reporter = CleanerReporter(profiler, logger, source_file_path=str(input_file))
         
-        # --- Nouvelle logique : Demander à l'utilisateur ---
+        # --- Demander à l'utilisateur ---
         if not reporter.demander_generation_rapport():
             print("✅ Rapport de nettoyage ignoré. Suite du pipeline...")
             return # On ne fait rien si l'utilisateur refuse

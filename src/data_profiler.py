@@ -258,14 +258,24 @@ class DataProfiler:
         for col, dtype in self.profile_results['dtypes'].items():
             md.append(f"| {col} | {dtype} |")
 
-        # Missing Values (seulement si > 0)
+        # --- CORRECTION ICI : Section Valeurs Manquantes ---
         md.append("\n## ⚠️ Valeurs Manquantes\n")
-        for col, pct in self.profile_results['missing_values']['percent'].items():
-            if pct > 0:
-                count = self.profile_results['missing_values']['count'][col]
-                md.append(f"- **{col}**: {pct:.2f}% ({count} lignes)")
+        
+        missing_values_data = self.profile_results.get('missing_values', {})
+        missing_found = False
+        
+        if missing_values_data:
+            for col, pct in missing_values_data.get('percent', {}).items():
+                if pct > 0:
+                    count = missing_values_data['count'][col]
+                    md.append(f"- **{col}**: {pct:.2f}% ({count} lignes)")
+                    missing_found = True
+        
+        # Si aucune valeur manquante n'a été détectée, on affiche une confirmation claire
+        if not missing_found:
+            md.append("✅ **Aucune valeur manquante détectée.** Les données sont saines sur ce critère.")
 
-        # Qualité des lignes
+        # Qualité des lignes (seulement si alertes existent)
         if 'row_quality' in self.profile_results and self.profile_results['row_quality']['alerts']:
             md.append("\n## 🚩 Qualité des Lignes\n")
             for alert in self.profile_results['row_quality']['alerts']:
@@ -442,10 +452,20 @@ class DataProfiler:
 
         # Valeurs manquantes
         html += "<h2>⚠️ Valeurs Manquantes</h2>"
-        for col, pct in self.profile_results['missing_values']['percent'].items():
-            if pct > 0:
-                count = self.profile_results['missing_values']['count'][col]
-                html += f"<p><strong>{col}</strong>: {pct:.2f}% ({count} lignes)</p>"
+        
+        missing_values_data = self.profile_results.get('missing_values', {})
+        missing_found = False
+        
+        if missing_values_data:
+            for col, pct in missing_values_data.get('percent', {}).items():
+                if pct > 0:
+                    count = missing_values_data['count'][col]
+                    html += f"<p><strong>{col}</strong>: {pct:.2f}% ({count} lignes)</p>"
+                    missing_found = True
+        
+        # Si aucune valeur manquante, on confirme l'état sain
+        if not missing_found:
+            html += "<p>✅ <strong>Aucune valeur manquante détectée.</strong> Les données sont saines sur ce critère.</p>"
 
         # Qualité des lignes
         if 'row_quality' in self.profile_results and self.profile_results['row_quality']['alerts']:
