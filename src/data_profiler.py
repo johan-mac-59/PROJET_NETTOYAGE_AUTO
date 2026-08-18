@@ -108,6 +108,7 @@ class DataProfiler:
             
             # Fréquence des catégories
             value_counts = series.value_counts()
+            top_categories = value_counts.head(10).to_dict()
             total_non_null = len(series) - null_count
             
             # Skewness de fréquence (pourcentage détenu par la catégorie majoritaire)
@@ -139,12 +140,6 @@ class DataProfiler:
             if has_case_issue:
                 detected_anomalies.append("Variations de casse (Maj/Min)")
 
-            # Gestion du nombre de valeurs à afficher
-            if len(value_counts) <= 20:
-                top_categories = value_counts.to_dict()
-            else:
-                top_categories = value_counts.head(5).to_dict()
-            
             categorical_stats[col] = {
                 'cardinality_absolute': cardinality_absolute,
                 'cardinality_relative': cardinality_relative,
@@ -315,21 +310,26 @@ class DataProfiler:
                 md.append(f"- **Sparsity Ratio | Taux de remplissage** : {stats['sparsity_ratio']}%")
                 
                 # Skewness de fréquence
-                if stats['is_high_skewness']:
-                    md.append(f"- ⚠️ **Skewness Frequency | Asymétrie de distribution** : {stats['skewness_frequency']}% (⚠️ Faible variance)")
-                else:
-                    # Ne pas afficher une faible variance si la colonne est très riche
-                    if stats['cardinality_absolute'] > 10:  # Si plus de 10 catégories, c'est un cas normal
-                        md.append(f"- **Skewness Frequency | Asymétrie de distribution** : {stats['skewness_frequency']}%")
-                    else:
-                        # Pour les colonnes avec peu de valeurs, on n'affiche pas la valeur faible
-                        md.append(f"- **Skewness Frequency | Asymétrie de distribution** : {stats['skewness_frequency']}% (⚠️ Peu de catégories)")
+                md.append(f"- **Skewness Frequency | Asymétrie de distribution** : {stats['skewness_frequency']}%")
 
-                # Catégories les plus fréquentes
-                md.append("\n- **Catégories les plus fréquentes** :")
-                for category, count in stats['top_categories'].items():
-                    percentage = (count / (len(self.df) - self.df[col].isnull().sum()) * 100).round(2)
-                    md.append(f"  - {category} ({percentage}%)")
+                # Catégories les plus fréquentes (Uniquement si la cardinalité est raisonnable < 100)
+                # On affiche toujours le TOP 10, quoi qu'il arrive dans cette plage
+                if stats['cardinality_absolute'] > 0 and stats['cardinality_absolute'] <= 100:
+                    md.append("\n- **Top 10 Catégories les plus fréquentes** :")
+                    
+                    # On s'assure de ne prendre que les 10 premiers (même si le profilage en a envoyé plus par erreur)
+                    top_10 = list(stats['top_categories'].items())[:10]
+
+                    for category, count in top_10:
+                        total_non_null = len(self.df) - self.df[col].isnull().sum()
+                        if total_non_null > 0:
+                            percentage = (count / total_non_null * 100).round(2)
+                        else:
+                            percentage = 0
+                        md.append(f"  - {category} ({percentage}%)")
+                elif stats['cardinality_absolute'] > 100:
+                    # Pour les listes très longues (ex: IDs), on affiche juste le compteur pour confirmer la diversité
+                    pass 
                 
                 # Qualité du format
                 if stats['format_anomalies']:
@@ -420,6 +420,7 @@ class DataProfiler:
                 th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
                 th { background-color: #f2f2f2; }
                 img { max-width: 100%; height: auto; margin: 10px 0; }
+                ul { margin-top: 5px; margin-bottom: 5px; }
             </style>
         </head>
         <body>
@@ -450,7 +451,7 @@ class DataProfiler:
             html += f"<tr><td>{col}</td><td>{dtype}</td></tr>"
         html += "</table>"
 
-        # Valeurs manquantes
+        # Valeurs manquantes (Correction pour afficher si vide)
         html += "<h2>⚠️ Valeurs Manquantes</h2>"
         
         missing_values_data = self.profile_results.get('missing_values', {})
@@ -493,7 +494,7 @@ class DataProfiler:
                 html += f"<tr><td>{col}</td><td>{info['count']}</td><td>{info['lower_bound']:.2f}</td><td>{info['upper_bound']:.2f}</td></tr>"
             html += "</table>"
 
-        # Stats Catégorielles
+        # Stats Catégorielles (Corrigées pour afficher toujours le Top 10 si pertinent)
         if 'describe_categorical' in self.profile_results:
             html += "<h2>📊 Analyse des Colonnes Catégorielles</h2>"
             
@@ -505,25 +506,27 @@ class DataProfiler:
                 html += f"<p><strong>Cardinalité relative</strong> : {stats['cardinality_relative']}%</p>"
                 html += f"<p><strong>Sparsity Ratio | Taux de remplissage</strong> : {stats['sparsity_ratio']}%</p>"
                 
-                # Skewness de fréquence
+                # Skewness de fréquence (Affichage neutre)
                 if stats['is_high_skewness']:
-                    html += f"<p><strong>Skewness Frequency | Asymétrie de distribution</strong> : {stats['skewness_frequency']}% (⚠️ Faible variance)</p>"
+                    html += f"<p><strong>Skewness Frequency | Asymétrie de distribution</strong> : {stats['skewness_frequency']}%</p>"
                 else:
-                    # Ne pas afficher une faible variance si la colonne est très riche
-                    if stats['cardinality_absolute'] > 10:  # Si plus de 10 catégories, c'est un cas normal
-                        html += f"<p><strong>Skewness Frequency | Asymétrie de distribution</strong> : {stats['skewness_frequency']}%</p>"
-                    else:
-                        # Pour les colonnes avec peu de valeurs, on n'affiche pas la valeur faible
-                        html += f"<p><strong>Skewness Frequency | Asymétrie de distribution</strong> : {stats['skewness_frequency']}% (⚠️ Peu de catégories)</p>"
+                    html += f"<p><strong>Skewness Frequency | Asymétrie de distribution</strong> : {stats['skewness_frequency']}%</p>"
 
-                # Catégories les plus fréquentes
-                html += "<p><strong>Catégories les plus fréquentes</strong> :</p>"
-                html += "<ul>"
-                for category, count in stats['top_categories'].items():
-                    percentage = (count / (len(self.df) - self.df[col].isnull().sum()) * 100).round(2)
-                    html += f"<li>{category} ({percentage}%)</li>"
-                html += "</ul>"
-                
+                # Catégories les plus fréquentes (Uniquement si cardinalité <= 100 pour rester lisible)
+                if stats['cardinality_absolute'] > 0 and stats['cardinality_absolute'] <= 100:
+                    html += "<p><strong>Top 10 Catégories les plus fréquentes</strong> :</p>"
+                    html += "<ul>"
+                    top_10 = list(stats['top_categories'].items())
+                    
+                    for category, count in top_10:
+                        total_non_null = len(self.df) - self.df[col].isnull().sum()
+                        if total_non_null > 0:
+                            percentage = (count / total_non_null * 100).round(2)
+                        else:
+                            percentage = 0
+                        html += f"<li>{category} ({percentage}%)</li>"
+                    html += "</ul>"
+
                 # Qualité du format
                 if stats['format_anomalies']:
                     html += "<p><strong>⚠️ Anomalies de format détectées</strong> :</p>"
@@ -616,7 +619,7 @@ class DataProfiler:
 
         html += "</body></html>"
         return html
-
+    
     def generate_html_report(self, output_filename: str = "data/processed/data_profiling_report.html") -> str:
         """Génère un rapport HTML avec graphiques intégrés."""
         os.makedirs(os.path.dirname(output_filename), exist_ok=True)
