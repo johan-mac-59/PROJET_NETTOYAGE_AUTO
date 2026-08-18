@@ -135,10 +135,46 @@ class DataProfiler:
                         if value != value.lower() and value != value.upper():
                             has_case_issue = True
             
-            if has_whitespace_issue:
-                detected_anomalies.append("Présence d'espaces superflus (début/fin)")
+            # Nouvelle logique : détection d'anomalie de casse
+            # On ne considère une anomalie de casse que si :
+            # 1. Il y a des valeurs en majuscules et en minuscules dans la colonne
+            # 2. Et qu'il n'y a pas un seul mot avec différentes casse (comme "Paris", "PARIS", "paris")
             if has_case_issue:
-                detected_anomalies.append("Variations de casse (Maj/Min)")
+                # Récupérer toutes les valeurs non nulls
+                non_null_values = series.dropna()
+                
+                # Convertir en string pour éviter les erreurs
+                str_values = non_null_values.astype(str)
+                
+                # Vérifier si des mots ont des casse différentes
+                # On vérifie si au moins une valeur contient à la fois majuscules et minuscules
+                has_mixed_case = False
+                for value in str_values:
+                    if isinstance(value, str) and len(value) > 0:
+                        # Vérifier si la valeur est mixte (contient majuscules ET minuscules)
+                        if value != value.lower() and value != value.upper():
+                            has_mixed_case = True
+                            break
+                
+                # Si c'est un mélange, on vérifie qu'il y a plus d'une version de chaque mot
+                if has_mixed_case:
+                    # Obtenir les valeurs uniques en minuscules pour détecter les doublons
+                    lowercase_values = str_values.str.lower()
+                    value_counts_lower = lowercase_values.value_counts()
+                    
+                    # Si une valeur apparaît plusieurs fois avec différentes casse, c'est une anomalie
+                    has_multiple_forms = False
+                    for count in value_counts_lower:
+                        if count > 1:
+                            has_multiple_forms = True
+                            break
+                    
+                    if has_multiple_forms:
+                        detected_anomalies.append("Présence d'espaces superflus (début/fin)")
+                        detected_anomalies.append("Variations de casse (Maj/Min)")
+            
+            if has_whitespace_issue and "Présence d'espaces superflus (début/fin)" not in detected_anomalies:
+                detected_anomalies.append("Présence d'espaces superflus (début/fin)")
 
             categorical_stats[col] = {
                 'cardinality_absolute': cardinality_absolute,
@@ -151,7 +187,7 @@ class DataProfiler:
             }
         
         return categorical_stats
-    
+   
     def _analyze_row_quality(self) -> Dict[str, Any]:
         """Analyse la qualité des lignes en fonction du pourcentage de valeurs manquantes."""
         # Calcul du pourcentage de valeurs manquantes par ligne
@@ -337,7 +373,7 @@ class DataProfiler:
                     for issue in stats['format_anomalies']:
                         md.append(f"  - {issue}")
                 else:
-                    md.append("\n- **✅ Format conforme**")
+                    md.append("\n- **✅ Format conforme (pas d'espace superflu ni de variation de casse)**")
 
         # Aperçu final
         md.append("\n## 👀 Aperçu\n")
