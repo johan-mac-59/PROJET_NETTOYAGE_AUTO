@@ -6,11 +6,11 @@
 
 Le projet est conçu comme une suite de modules spécialisés, orchestrés par `main.py`, pour transformer des données brutes et incertaines en datasets propres et exploitables :
 
-* **`file_loader`** : Intelligence de lecture. Détecte automatiquement le format (CSV/Excel), l'encodage (UTF-8, Latin1) et le séparateur (`,` , `;` ou `\t`) pour garantir un chargement sans erreur.
+* **`file_loader`** : Intelligence de lecture. Détecte automatiquement le format (CSV/Excel/JSON), l'encodage (UTF-8, Latin1) et le séparateur (`,` , `;` ou `\t`) pour garantir un chargement sans erreur.
 * **`data_profiler`** : Inspection & Diagnostic. Génère des rapports détaillés des données brutes et nettoyées. Capable de produire :
     *   Un fichier **Markdown** structuré avec aperçu, statistiques et qualité des lignes.
     *   Un fichier **HTML** reprenant le profilage complet avec graphiques intégrés (histogrammes, boxplots, barplots) pour une visualisation avancée de la distribution des données.
-* **`cleaner_engine`** : Moteur de transformation intelligent. Automatise les tâches critiques : suppression des doublons, gestion des valeurs manquantes, et normalisation avancée des formats monétaires (suppression des symboles €, $, £) et correction des types numériques (passage du type float instable au type `Int64` robuste).
+* **`cleaner_engine`** : Moteur de transformation intelligent. Automatise les tâches critiques : suppression des doublons, gestion des valeurs manquantes et aberrantes, et normalisation avancée des formats monétaires (suppression des symboles €, $, £) et correction des types numériques (passage du type float instable au type `Int64` robuste).
 * **`cleaner_logger`** : Audit & Traçabilité. Génère un rapport détaillé après chaque passage, permettant de visualiser l'impact précis du nettoyage (nombre de lignes traitées, statistiques post-nettoyage). Disponible dans le projet, appelé par les fonctions orchestrateurs.
 * **`cleaner_reporter`** : Reporting Professionnel. Transforme les logs et les profils en document d'audit Markdown structuré avec comparaison "Avant" vs "Après" nettoyage (KPIs).
 
@@ -25,7 +25,7 @@ L'application suit un flux itératif conçu pour intégrer le contrôle utilisat
     *   Interrogation de l'utilisateur sur les outliers et valeurs manquantes pour décider de la marche à suivre.
 4.  **Reporting Terminal** : Affichage résumé des opérations effectuées (gain en lignes/colonnes, types modifiés).
 5.  **Sauvegarde** : Export du dataset nettoyé vers `data/processed/`.
-6.  **(Prochainement) Nouvel profilage post-nettoyage** : Comparaison automatique "Avant/Après" pour valider la qualité finale.
+6.  **(Prochainement) Nouveau profilage post-nettoyage** : Comparaison automatique "Avant/Après" pour valider la qualité finale.
 
 ## 📖 Exemple d'utilisation rapide
 

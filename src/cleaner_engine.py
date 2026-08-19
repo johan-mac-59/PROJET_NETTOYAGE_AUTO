@@ -265,10 +265,14 @@ def clean_duplicates(df: pd.DataFrame) -> Tuple[pd.DataFrame, int]:
     n_removed = n_before - len(df_cleaned)
     return df_cleaned, n_removed
 
-def clean_case_sensitivity(df: pd.DataFrame) -> Tuple[pd.DataFrame, dict]:
+def clean_case_sensitivity(df: pd.DataFrame, target_columns: list = None) -> Tuple[pd.DataFrame, dict]:
     """
-    Unifie la casse des colonnes catégorielles (texte) en minuscules.
-    IGNORE les valeurs manquantes pour éviter de transformer 'NaN' en 'nan'.
+    Unifie la casse des colonnes catégorielles en minuscules.
+    
+    Args:
+        df: DataFrame à nettoyer
+        target_columns: Liste optionnelle de colonnes spécifiques à traiter.
+                        Si None, analyse toutes les colonnes string (comportement par défaut).
     """
     if df.empty:
         return df.copy(), {}
@@ -276,12 +280,20 @@ def clean_case_sensitivity(df: pd.DataFrame) -> Tuple[pd.DataFrame, dict]:
     df_cleaned = df.copy()
     corrections = {}
     
-    # On cible les colonnes textuelles (object ou string)
-    text_cols = df_cleaned.select_dtypes(include=['object', 'string']).columns
-    
-    for col in text_cols:
+    # 1. Identification des colonnes candidates
+    if target_columns:
+        # On garde seulement celles qui existent dans le DF et qui sont de type string/object
+        cols_to_process = [c for c in target_columns if c in df_cleaned.columns and df_cleaned[c].dtype in ['object', 'string']]
+    else:
+        # Comportement par défaut : tout scanner
+        cols_to_process = df_cleaned.select_dtypes(include=['object', 'string']).columns
+
+    print(f"🔍 Traitement de la casse sur {len(cols_to_process)} colonne(s) ciblée(s)...")
+
+    for col in cols_to_process:
+        # ... (ton code actuel commence ici) ...
+        
         # 1. Créer un masque des valeurs NON manquantes
-        # .notna() fonctionne même sur les strings 'nan' si le dtype est object/string
         valid_mask = df_cleaned[col].notna()
         
         if not valid_mask.any():
@@ -289,10 +301,11 @@ def clean_case_sensitivity(df: pd.DataFrame) -> Tuple[pd.DataFrame, dict]:
             
         sample = df_cleaned[col][valid_mask].head(10)
         
-        # FILTRES EXISTANTS (ID mixte, etc.)
+        # --- Filtre de sécurité : Ignorer les IDs alphanumériques ou non-textes ---
         is_id_like = False
         for val in sample:
             val_str = str(val)
+            # Si l'échantillon contient des chiffres et des lettres, c'est suspect (ID, code postal mixte, etc.)
             if any(c.isalpha() for c in val_str) and any(c.isdigit() for c in val_str):
                 if len(val_str) < 10: 
                     is_id_like = True
@@ -301,36 +314,28 @@ def clean_case_sensitivity(df: pd.DataFrame) -> Tuple[pd.DataFrame, dict]:
         if is_id_like:
             continue
 
-        # Si l'échantillon valide ne contient aucune lettre, on skip.
-        # On convertit en string pour chercher des lettres
+        # Si l'échantillon ne contient aucune lettre (ex: codes postaux "75001"), pas besoin de lower()
         has_letters = sample.astype(str).str.contains('[a-zA-Z]').any()
         if not has_letters:
             continue
 
-        # 2. Appliquer lower() UNIQUEMENT sur les valeurs valides (non NaN)
-        # C'est important de ne pas toucher aux NaN pour ne pas créer de faux positifs
+        # 2. Appliquer lower() UNIQUEMENT sur les valeurs valides
         original_valid = df_cleaned[col][valid_mask].astype(str)
-        
         lowered = original_valid.str.lower()
         
-        # On compare : original != lowered
-        # Mais attention : "NaN" -> "nan" est techniquement un changement de string, mais pas de casse "réelle" pour une donnée manquante.
-        # Pour être propre, on ignore les changements qui ne concernent que la transformation 'NaN' -> 'nan'
+        # On ne retient que les vraies différences de casse (ex: "Paris" -> "paris")
+        # On exclut les cas comme "NaN" -> "nan" qui sont des artefacts de conversion
         changed_mask = original_valid != lowered
         
-        # On retire les faux positifs liés aux NaN textuels
-        # Si la valeur originale est "NaN" ou "nan" et devient "nan", on considère que c'est pas une correction de casse "métier"
+        # Filtre : on ignore les changements purement liés aux mots vides/textuels standards ("NaN", "None")
         nan_text_mask = original_valid.str.lower().isin(['nan', 'none', 'na', 'null'])
         
-        # On retire les NaN textuels des changements comptés si ils ne changent pas de sens (juste minuscule standard)
-        # En fait, le plus simple est de vérifier : la valeur a-t-elle DES LETTRES MINUSCULES qui étaient MAJUSCULES ?
-        # Une heuristique plus robuste : on garde le changement seulement si il contient des lettres alphabétiques visibles
-        real_change_mask = changed_mask & (original_valid.str.contains('[a-zA-Z]').fillna(False))
+        # La correction est réelle si elle change la chaîne ET qu'elle contient des lettres alphabétiques visibles
+        real_change_mask = changed_mask & ~nan_text_mask & (original_valid.str.contains('[a-zA-Z]').fillna(False))
 
         n_changes = real_change_mask.sum()
         
         if n_changes > 0:
-            # On applique la correction uniquement sur les valeurs valides qui ont réellement changé
             df_cleaned.loc[df_cleaned[col].notna(), col] = lowered.where(real_change_mask, df_cleaned[col][valid_mask])
             corrections[col] = int(n_changes)
     
@@ -539,7 +544,7 @@ def ask_user_missing_values_correction(df: pd.DataFrame, stats: dict, profiler_r
             print("⚠️ Veuillez répondre par 'y' (oui) ou 'n' (non).")
             print("⏳  Appuyez sur Entrée pour choisir 'y' par défaut.")
 
-def run_all_cleaning_steps(df: pd.DataFrame, max_iterations: int = 5, correct_outliers: bool = True, fill_missing: bool = True) -> Tuple[pd.DataFrame, dict]:
+def run_all_cleaning_steps(df: pd.DataFrame, profile_info: dict = None, max_iterations: int = 5, correct_outliers: bool = True, fill_missing: bool = True) -> Tuple[pd.DataFrame, dict]:
     """
     Applique les nettoyages de manière itérative et ordonnée.
     
@@ -569,6 +574,14 @@ def run_all_cleaning_steps(df: pd.DataFrame, max_iterations: int = 5, correct_ou
 
     current_df = df.copy()
     
+    # ÉTAPE PRÉLIMINAIRE : Utilisation du Profile pour filtrer les cibles
+    target_cols_for_case = []
+    if profile_info and 'describe_categorical' in profile_info:
+        for col, col_stats in profile_info['describe_categorical'].items():
+            # Si le profiler a détecté des anomalies de format (donc casse probable)
+            if col_stats.get('format_anomalies') and any("Variations de casse" in s or "Espaces" in s for s in col_stats['format_anomalies']):
+                target_cols_for_case.append(col)
+
     # Boucle de nettoyage automatique (sans interaction utilisateur)
     for iteration in range(max_iterations):
         print(f"\n🔄 Itération {iteration + 1}/{max_iterations}")
@@ -596,8 +609,12 @@ def run_all_cleaning_steps(df: pd.DataFrame, max_iterations: int = 5, correct_ou
         if n_dropped > 0:
             stats['empty_cols_dropped'] += n_dropped
 
-        # 5. Nettoyage de la casse (à faire après espaces et types mais avant doublons)
-        current_df, case_corrections = clean_case_sensitivity(current_df)
+        # 5. Nettoyage de la casse CIBLÉ ou GLOBAL
+        if target_cols_for_case:
+            current_df, case_corrections = clean_case_sensitivity(current_df, target_columns=target_cols_for_case)
+        else:
+            current_df, case_corrections = clean_case_sensitivity(current_df) # Fallback global
+            
         if case_corrections:
             stats['case_normalized'].update(case_corrections)
 

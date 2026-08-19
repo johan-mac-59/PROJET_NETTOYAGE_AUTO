@@ -888,5 +888,33 @@ Le pipeline est passé d'un outil de **nettoyage de fichiers** à un outil de **
 
 ---
 
+## Étape 26 : Optimisation de l'Efficacité par le Nettoyage Ciblé et l'Intelligence Contextuelle 🎯🧠
+
+Dans cette phase, le pipeline a évolué d'un mode de traitement "aveugle" vers un mode de traitement "piloté par la donnée". L'objectif était de réduire la charge computationnelle et de limiter les risques de transformations inutiles en utilisant les connaissances du module de profilage.
+
+### 1. Le Problème : Le coût du traitement global
+Jusqu'alors, le moteur de nettoyage (`clean_case_sensitivity`) analysait systématiquement toutes les colonnes de type `object` ou `string` du DataFrame. Sur des datasets massifs (millions de lignes) comportant des centaines de colonnes, ce scan global présente deux inconvénients :
+* **Surcoût computationnel** : Tester chaque colonne pour détecter des variations de casse consomme des ressources CPU et de la mémoire inutilement si la colonne est déjà propre.
+* **Risque de régression** : Appliquer des transformations textuelles sur des colonnes qui ne nécessitent aucun traitement augmente la surface d'erreur (ex: altération accidentelle de chaînes complexes).
+
+### 2. La Solution : L'utilisation du Profilage comme Guide de Nettoyage
+Nous avons implémenté un mécanisme de **filtrage intelligent** en utilisant les résultats du `DataProfiler` comme une "carte routière" pour le `cleaner_engine`.
+
+* **Identification des cibles (Targeting)** : 
+    Le pipeline extrait désormais, lors de la phase de profilage, la liste précise des colonnes présentant des anomalies de format (spécifiquement les `"Variations de casse"` et les `"Espaces"` détectés par le moteur d'analyse).
+* **Injection de contexte** : 
+    Cette liste de colonnes cibles est transmise au moteur de nettoyage via le paramètre `target_columns`. 
+* **Exécution sélective** : 
+    Si des cibles sont identifiées, le moteur de nettoyage se concentre exclusivement sur celles-ci. Si aucune anomalie n'est détectée, le moteur peut soit s'arrêter, soit passer en mode global par sécurité (fallback).
+
+### 3. Avantages techniques et métier
+* **Performance accrue** : Réduction drastique du nombre d'itérations sur les colonnes de type `object` qui ne présentent aucun problème de formatage.
+* **Précision chirurgicale** : Le nettoyage n'est appliqué que là où le besoin est prouvé par l'audit initial, garantissant une intégrité maximale des données non impactées.
+* **Synergie entre modules** : Renforcement de l'interdépendance positive entre le `DataProfiler` (l'observateur) et le `cleaner_engine` (l'acteur), transformant le pipeline en un système intelligent et réactif.
+
+### 4. Résultat
+Le pipeline est devenu **"context-aware"** (conscient de son contexte). Il ne se contente plus d'exécuter une liste de tâches, il adapte sa stratégie de travail en fonction de la qualité réelle des données qu'il est chargé de traiter.
+
+---
 
 *Projet en cours de développement - Capacité d'analyse visuelle et reporting autonome validée.*

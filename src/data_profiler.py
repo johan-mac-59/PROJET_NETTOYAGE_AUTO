@@ -289,7 +289,6 @@ class DataProfiler:
         for col, dtype in self.profile_results['dtypes'].items():
             md.append(f"| {col} | {dtype} |")
 
-        # --- CORRECTION ICI : Section Valeurs Manquantes ---
         md.append("\n## ⚠️ Valeurs Manquantes\n")
         
         missing_values_data = self.profile_results.get('missing_values', {})
