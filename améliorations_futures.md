@@ -7,10 +7,10 @@
 - **enrichir le DataProfiler** : renseigner le fichier source, mettre des graphiques (répartition, heatmap, dispersion, outliers...) **en cours**
 
 ## 📊 Améliorations Fonctionnelles
-- **enrichir le rapport** : ajouter un nouveau DataProfiler à la suite du nettoyage
+- **enrichir le rapport** : ajouter un nouveau DataProfiler à la suite du nettoyage -> créer une classe héritée de DataPRofiler **en cours**
 - **améliorer la détection des dates** : être plus explicite sur le format 
 - **Séparer profiling et cleaning** : permettre de lancer un nettoyage des données après avoir pris le temps d'analyser la structure du dataset
-- **améliorer le nettoyage de la casse** : rendre le nettoyage de la casse intelligent en l'appliquant uniquement sur les colonnes identifiées comme problématiques
+
 
 
 

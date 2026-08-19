@@ -9,7 +9,7 @@ from io import BytesIO
 import base64
 
 class DataProfiler:
-    """Analyse descriptive d'un DataFrame avec génération de rapport Markdown."""
+    """Analyse descriptive d'un DataFrame avec génération de rapport."""
 
     def __init__(self, df: pd.DataFrame, source_file_path: str = None):
         if not isinstance(df, pd.DataFrame):
@@ -694,5 +694,27 @@ class DataProfiler:
             print("❌ Choix non valide. Génération par défaut en Markdown.")
             report_filename = reports_dir / f"profiling_{input_file.stem}_{timestamp}.md"
             self.generate_md_report(str(report_filename))
+            
+    def run_profiling_workflow(self, source_path: Path, reports_dir: Path) -> Dict[str, Any]:
+        """
+        Exécute le profilage complet et génère le rapport choisi.
+        Retourne uniquement les résultats d'analyse.
+        """
+        print("⏳ Lancement du profilage...")
+        
+        try:
+            # 1. Analyse
+            results = self.run_analysis()
+            
+            # 2. Choix et génération du rapport
+            self.interactive_report_choice(reports_dir, source_path)
+            
+            print(f"✅ Profilage terminé ({len(results.keys())} critères analysés).")
+            return results
+
+        except Exception as e:
+            # On capture l'erreur mais on ne crash pas tout le pipeline
+            print(f"⚠️ Erreur lors du profilage : {e}")
+            return {} # Retourne un dictionnaire vide pour éviter les NoneType plus loin
 
             

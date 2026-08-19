@@ -10,18 +10,32 @@ from src.cleaner_logger import generate_and_print_report
 from src.cleaner_reporter import generate_enhanced_report
 
 def main():
-    # 1. Configuration (Pathlib pour les chemins robustes sous Windows)
+    # ==========================================
+    # 📍 1. CONFIGURATION DES CHEMINS
+    # ==========================================
     base_dir = Path(__file__).parent
-    input_file = base_dir / "data/raw/reservations_rivage_brut.csv"
-    output_file = base_dir / "data/processed/dataset_nettoye.csv"
-    reports_dir = base_dir / "data/reports"
     
-    # On s'assure que les dossiers de sortie existent
-    reports_dir.mkdir(parents=True, exist_ok=True)
+    # Définition des chemins relatifs
+    RELATIVE_INPUT = "data/raw/reservations_rivage_brut.csv"
+    RELATIVE_OUTPUT = "data/processed/dataset_nettoye.csv"
+    RELATIVE_REPORTS = "data/reports"
 
+    input_file = base_dir / RELATIVE_INPUT
+    output_file = base_dir / RELATIVE_OUTPUT
+    reports_dir = base_dir / RELATIVE_REPORTS
+
+    # 🔎 Validation stricte des chemins existants au démarrage
     if not input_file.exists():
-        print(f"❌ Impossible de trouver le fichier d'entrée : {input_file}")
-        return
+        raise FileNotFoundError(
+            f"❌ ERREUR DE CONFIGURATION :\n"
+            f"Le fichier source est introuvable à l'emplacement suivant :\n"
+            f"👉 {input_file.resolve()}\n\n"
+            "Veuillez vérifier le chemin relatif dans le code (variable 'RELATIVE_INPUT')."
+        )
+
+    # Création automatique du dossier de sortie s'il n'existe pas
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+    reports_dir.mkdir(parents=True, exist_ok=True)
 
     # 2. Chargement
     print("⏳ Chargement du fichier...")
@@ -29,20 +43,9 @@ def main():
     print(f"✅ Fichier chargé ({initial_df.shape[0]} lignes, {initial_df.shape[1]} colonnes)\n")
 
     # 3. PROFILAGE (Inséré avant le nettoyage pour avoir une trace fiable)
-    profiler_results = None
-    try:
-        print("--- 📊 Lancement du Profilage ---")
-        profiler = DataProfiler(initial_df, input_file)
-        
-        # choix du format du rapport pour l'utilisateur
-        profiler.interactive_report_choice(reports_dir, input_file)
-        
-        # Exécuter l'analyse pour avoir les résultats en mémoire (dict)
-        profiler_results = profiler.run_analysis()
-        print(f"✅ Profilage terminé ({len(profiler_results.keys())}) critères analysés.")
-
-    except Exception as e:
-        print(f"⚠️ Erreur lors du profilage : {e} (On continue avec un profil vide)")
+    profiler_results = {}
+    profiler = DataProfiler(initial_df, input_file)
+    profiler_results = profiler.run_profiling_workflow(input_file, reports_dir)
 
     # 4. PRÉPARATION DU NETTOYAGE CIBLÉ
     
