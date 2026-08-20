@@ -162,29 +162,27 @@ def clean_types(df: pd.DataFrame) -> Tuple[pd.DataFrame, dict]:
         cleaned_series = cleaned_series.str.replace('$', '', regex=False)
         cleaned_series = cleaned_series.str.replace(' ', '', regex=False) # Supprime les espaces de milliers ex: "1 000" -> "1000"
         
-        # B. Gestion des séparateurs décimaux européens (virgule) vs anglo-saxons (point)
-        # On remplace la virgule par un point pour standardiser, mais on doit faire attention aux séparateurs de milliers 
-        # si le format est ex: "1.200,50" (point = milliers, virgule = décimal).
-        # Pour simplifier et être robuste :
-        # Si il y a des points ET des virgules, on suppose souvent que le dernier séparant est le décimal.
-        # Exemple : "1 200,50 €" -> après étape A, ça devient "1200,50". Donc juste remplacer , par .
+        # B. Gestion intelligente des séparateurs : Virgule vs Point
         
-        # Cas particulier : "1.234" (milliers euro) vs "1.234" (décimal). 
-        # Les décimales peuvent utiliser la virgule. Les points semblent être des séparateurs de milliers ou des dates mal parsées.
-        # Hypothèse : Si on a une virgule, elle est le séparateur décimal.
+        # Cas A : La colonne contient des virgules ET des points.
+        # Règle : On suppose le format Européen/Américain mixte où la virgule est le décimal et le point est le millier.
+        # Ex: "1.234,50" -> "1234.50"
+        if cleaned_series.str.contains(',', regex=False).any() and cleaned_series.str.contains(r'\.', regex=False).any():
+            cleaned_series = cleaned_series.str.replace('.', '', regex=False) # Supprime les milliers
+            cleaned_series = cleaned_series.str.replace(',', '.', regex=False) # Transforme le décimal en point standard
+            
+        # Cas B : La colonne contient UNE virgule mais PAS de point.
+        # Règle : La virgule est le séparateur décimal.
+        # Ex: "1234,50" -> "1234.50"
+        elif cleaned_series.str.contains(',', regex=False).any():
+            cleaned_series = cleaned_series.str.replace(',', '.', regex=False)
         
-        if cleaned_series.str.contains(',', regex=False).any():
-            # Il y a des virgules -> On considère la virgule comme séparateur décimal
-            cleaned_series = cleaned_series.str.replace('.', '', regex=False) # Enlève les éventuels séparateurs de milliers (points)
-            cleaned_series = cleaned_series.str.replace(',', '.', regex=False) # Transforme le décimal en point standard python/pandas
+        # Cas C : La colonne contient UN point mais PAS de virgule.
+        # Règle : On ne touche à rien par défaut. pd.to_numeric gère nativement les décimales US (point).
+        # Ex: "715.90" reste "715.90" et sera converti en 715.9.
+        # C'est crucial : si tu supprimes le point ici, "715.90" devient "71590".
         else:
-            # Pas de virgule. On suppose que le point est soit un séparateur de milliers, soit un décimal.
-            # Si on a "1.000" (3 chiffres après le point) -> Séparateur de milliers ? Ou entier ?
-            # Pour éviter de perdre des décimales, on garde les points tels quels sauf s'ils semblent être des millers.
-            # Une règle simple : si le nombre de points > 1 ou que la partie après le dernier point a plus de 2 chiffres, c'est peut-être un mille.
-            # Exemples: "1501,73" (virgule), "1410,10" (virgule), "1274.52" (point).
-            # Donc on ne touche rien si pas de virgule, et on laisse pd.to_numeric gérer le point ou l'ignore s'il est illisible.
-            pass
+            pass 
 
         # C. Remplacement des NaN textuels éventuels par np.nan
         cleaned_series = cleaned_series.replace(['', 'nan', 'None', 'NULL'], np.nan)
