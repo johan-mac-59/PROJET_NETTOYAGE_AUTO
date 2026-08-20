@@ -4,7 +4,7 @@ import sys
 
 # Import des modules du projet
 from src.file_loader import load_file
-from src.cleaner_engine import run_all_cleaning_steps, ask_user_outlier_correction, ask_user_missing_values_correction
+from src.cleaner_engine import run_all_cleaning_steps, get_user_decisions, prepare_target_columns_for_case_cleaning
 from src.data_profiler import DataProfiler
 from src.cleaner_logger import generate_and_print_report
 from src.cleaner_reporter import generate_enhanced_report
@@ -50,47 +50,16 @@ def main():
     # 4. PRÉPARATION DU NETTOYAGE CIBLÉ
     
     # A. Extraction des colonnes cibles pour la casse (basé sur le profiler)
-    target_cols_for_case = []
-    if profiler_results and 'describe_categorical' in profiler_results:
-        for col, stats in profiler_results['describe_categorical'].items():
-            anomalies = stats.get('format_anomalies', [])
-            # On cible les colonnes qui ont des problèmes de casse OU d'espaces détectés par le profiler
-            if any("Variations de casse" in str(a) or "Espaces" in str(a) for a in anomalies):
-                target_cols_for_case.append(col)
-
+    target_cols_for_case = prepare_target_columns_for_case_cleaning(profiler_results)
     if target_cols_for_case:
-        print(f"🎯 Nettoyage ciblé activé pour la casse sur : {', '.join(target_cols_for_case)}")
+        print(f"🎯 Nettoyage ciblé activé pour la casse sur les colonnes : {', '.join(target_cols_for_case)}")
     else:
-        print("ℹ️ Aucune colonne cible spécifique pour la détectée par le profilage. (Scan global ou ignoré selon cleaner_engine)")
-
+        print("ℹ️ Aucun problème de casse détecté")
+    
     # B. Demande utilisateur pour les décisions lourdes (Outliers / Missing)
     correct_outliers = True
     fill_missing = True
-    
-    print("\n" + "="*60)
-    print("🔧 Décisions de Nettoyage Avancé")
-    print("="*60)
-
-    if profiler_results:
-        # Outliers
-        if 'outliers' in profiler_results and profiler_results['outliers']:
-            correct_outliers = ask_user_outlier_correction(initial_df, {}, profiler_results['outliers'])
-        else:
-            print("✅ Aucune valeur aberrante détectée par le profilage.")
-                
-        # Missing Values
-        total_missing = initial_df.isnull().sum().sum()
-        if total_missing > 0:
-            fill_missing = ask_user_missing_values_correction(initial_df, {}, profiler_results['missing_values'])
-        else:
-            print("✅ Aucune valeur manquante détectée par le profilage.")
-    else:
-        # Fallback si pas de profil
-        print("⚠️ Pas de résultats de profilage. Questions standards...")
-        correct_outliers = ask_user_outlier_correction(initial_df, {}, {})
-        fill_missing = ask_user_missing_values_correction(initial_df, {}, {})
-
-    print(f"\n➡️ Configuration finale : Outliers={'ON' if correct_outliers else 'OFF'} | Missing={'ON' if fill_missing else 'OFF'}")
+    correct_outliers, fill_missing = get_user_decisions(initial_df, profiler_results)
 
     # 5. LANCEMENT DU NETTOYAGE
     try:

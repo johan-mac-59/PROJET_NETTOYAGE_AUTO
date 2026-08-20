@@ -917,4 +917,29 @@ Le pipeline est devenu **"context-aware"** (conscient de son contexte). Il ne se
 
 ---
 
+## Étape 27 : Refactoring de l'Orchestrateur : Vers une Modularité Totale et une Haute Maintenabilité 🏗️🚀
+
+Dans cette phase, l'objectif était de transformer le point d'entrée du projet pour atteindre un niveau de maturité logicielle professionnelle, en appliquant les principes de séparation des responsabilités.
+
+### 1. Le passage du "Script" au "Pipeline Orchestré"
+Jusqu'ici, la fonction `main()` portait une trop grande partie de la logique de décision et de configuration. Bien que fonctionnelle, cette approche présentait des risques de rigidité. Nous avons procédé à un refactoring majeur pour transformer `main.py` en un véritable **orchestrateur de flux**.
+
+* **Extraction de la logique de décision** : La logique complexe de collecte des préférences utilisateur (Outliers / Missing values) a été extraite de `main.py` pour être encapsulée dans `src/cleaner_engine.py`.
+* **Simplification de l'interface** : `main.py` ne gère plus "comment" décider, mais "quand" appeler les modules. Il se contente de piloter la séquence : Charger $\rightarrow$ Profiler $\rightarrow$ Décider $\rightarrow$ Nettoyer $\rightarrow$ Sauvegarder $\rightarrow$ Rapporter.
+
+### 2. Bénéfices de la modularité accrue
+
+Ce refactoring a apporté des avantages critiques pour la vie du projet :
+
+* **Haute Maintenabilité (Separation of Concerns)** : En isolant la logique de décision dans le moteur (`cleaner_engine`), toute modification de la règle métier (ex: ajouter une nouvelle option de nettoyage) se fait dans le module spécialisé sans risquer de casser l'orchestration du pipeline dans `main.php`.
+* **Reproductibilité et Testabilité** : En rendant les fonctions de décision et de nettoyage "indépendantes" de l'environnement d'exécution, nous avons facilité la création de tests unitaires isolés. On peut désormais tester la logique de décision sans avoir besoin de simuler un fichier CSV complet.
+* **Clarté de l'Architecture** : Le point d'entrée est devenu une lecture "haut niveau" du workflow. Un nouvel arrivant sur le projet peut comprendre le processus métier en quelques secondes de lecture, sans être noyé dans les détails d'implémentation des algorithmes.
+
+### 3. Résultat final
+L'architecture est désormais capable d'absorber de nouvelles étapes (comme une étape de validation de schéma ou d'export vers une base de données) sans augmenter la complexité cognitive de l'orchestrateur principal.
+
+---
+
+
+
 *Projet en cours de développement - Capacité d'analyse visuelle et reporting autonome validée.*

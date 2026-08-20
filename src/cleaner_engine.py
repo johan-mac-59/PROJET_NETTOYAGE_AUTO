@@ -265,6 +265,25 @@ def clean_duplicates(df: pd.DataFrame) -> Tuple[pd.DataFrame, int]:
     n_removed = n_before - len(df_cleaned)
     return df_cleaned, n_removed
 
+def prepare_target_columns_for_case_cleaning(profiler_results: dict) -> list:
+    """
+    Détermine les colonnes cibles pour le nettoyage de la casse basé sur les résultats du profiler.
+    
+    Args:
+        profiler_results (dict): Résultats du DataProfiler
+        
+    Returns:
+        list: Liste des noms de colonnes à traiter
+    """
+    target_cols = []
+    if profiler_results and 'describe_categorical' in profiler_results:
+        for col, stats in profiler_results['describe_categorical'].items():
+            anomalies = stats.get('format_anomalies', [])
+            # On cible les colonnes qui ont des problèmes de casse OU d'espaces détectés par le profiler
+            if any("Variations de casse" in str(a) or "Espaces" in str(a) for a in anomalies):
+                target_cols.append(col)
+    return target_cols
+
 def clean_case_sensitivity(df: pd.DataFrame, target_columns: list = None) -> Tuple[pd.DataFrame, dict]:
     """
     Unifie la casse des colonnes catégorielles en minuscules.
@@ -543,6 +562,47 @@ def ask_user_missing_values_correction(df: pd.DataFrame, stats: dict, profiler_r
         else:
             print("⚠️ Veuillez répondre par 'y' (oui) ou 'n' (non).")
             print("⏳  Appuyez sur Entrée pour choisir 'y' par défaut.")
+            
+def get_user_decisions(initial_df: pd.DataFrame, profiler_results: dict) -> Tuple[bool, bool]:
+    """
+    Demande à l'utilisateur s'il veut corriger les outliers et remplir les valeurs manquantes.
+    
+    Args:
+        initial_df: DataFrame initial
+        profiler_results: Résultats du DataProfiler
+        
+    Returns:
+        Tuple[bool, bool]: (correct_outliers, fill_missing)
+    """
+    print("\n" + "="*60)
+    print("🔧 Décisions de Nettoyage Avancé")
+    print("="*60)
+    
+    correct_outliers = True
+    fill_missing = True
+    
+    if profiler_results:
+        # Outliers
+        if 'outliers' in profiler_results and profiler_results['outliers']:
+            correct_outliers = ask_user_outlier_correction(initial_df, {}, profiler_results['outliers'])
+        else:
+            print("✅ Aucune valeur aberrante détectée par le profilage.")
+                
+        # Missing Values
+        total_missing = initial_df.isnull().sum().sum()
+        if total_missing > 0:
+            fill_missing = ask_user_missing_values_correction(initial_df, {}, profiler_results['missing_values'])
+        else:
+            print("✅ Aucune valeur manquante détectée par le profilage.")
+    else:
+        # Fallback si pas de profil
+        print("⚠️ Pas de résultats de profilage. Questions standards...")
+        correct_outliers = ask_user_outlier_correction(initial_df, {}, {})
+        fill_missing = ask_user_missing_values_correction(initial_df, {}, {})
+    
+    print(f"\n➡️ Configuration finale : \nEcrêtage des Outliers = {'OUI' if correct_outliers else 'NON'}\nRemplacement des valeurs manquantes = {'OUI' if fill_missing else 'NON'}")
+    
+    return correct_outliers, fill_missing
 
 def run_all_cleaning_steps(df: pd.DataFrame, profile_info: dict = None, max_iterations: int = 5, correct_outliers: bool = True, fill_missing: bool = True) -> Tuple[pd.DataFrame, dict]:
     """
@@ -668,3 +728,4 @@ def run_all_cleaning_steps(df: pd.DataFrame, profile_info: dict = None, max_iter
         stats['outliers_corrected'] = {'ignored': True}  # Format cohérent
     
     return current_df, stats
+
