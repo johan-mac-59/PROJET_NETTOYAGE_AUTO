@@ -272,6 +272,10 @@ class DataProfiler:
         md.append("## 🧱 Structure\n")
         for k, v in {**shape, **{'nb_doublons': self.profile_results.get('nb_doublons', 0)}}.items():
             md.append(f"- **{k}**: {v}")
+            
+        # Aperçu du dataframe
+        md.append("\n## 👀 Aperçu\n")
+        md.append(self.profile_results['sample_preview'])
         
         # Types (tableau simple)
         md.append("\n## 🏷️ Colonnes et Types\n")
@@ -374,10 +378,6 @@ class DataProfiler:
                 else:
                     md.append("\n- **✅ Format conforme (pas d'espace superflu ni de variation de casse)**")
 
-        # Aperçu final
-        md.append("\n## 👀 Aperçu\n")
-        md.append(self.profile_results['sample_preview'])
-
         return "\n".join(md)
 
     def generate_md_report(self, output_filename: str = "data/processed/data_profiling_report.md") -> str:
@@ -394,54 +394,9 @@ class DataProfiler:
             
         print(f"📄 Rapport sauvegardé : {output_filename}")
         return output_filename
-
-    def generate_visualizations(self, output_dir: str = "data/processed/") -> None:
-        """Génère des visualisations et les sauvegarde dans un dossier."""
-        os.makedirs(output_dir, exist_ok=True)
-        
-        # 1. Histogrammes pour les colonnes numériques
-        numeric_cols = self.df.select_dtypes(include=['number']).columns
-        for col in numeric_cols:
-            try:
-                plt.figure(figsize=(8, 4))
-                sns.histplot(self.df[col].dropna(), kde=True)
-                plt.title(f"Distribution de {col}")
-                plt.tight_layout()
-                plt.savefig(Path(output_dir) / f"{col}_hist.png")
-                plt.close()
-            except Exception as e:
-                print(f"⚠️ Erreur lors de la génération du histogramme pour {col}: {e}")
-
-        # 2. Boxplots pour les colonnes numériques (outliers)
-        for col in numeric_cols:
-            try:
-                plt.figure(figsize=(6, 3))
-                sns.boxplot(y=self.df[col].dropna())
-                plt.title(f"Boxplot de {col}")
-                plt.tight_layout()
-                plt.savefig(Path(output_dir) / f"{col}_boxplot.png")
-                plt.close()
-            except Exception as e:
-                print(f"⚠️ Erreur lors de la génération du boxplot pour {col}: {e}")
-
-        # 3. Graphiques pour les colonnes catégorielles
-        categorical_cols = self.df.select_dtypes(include=['str','object', 'category']).columns
-        for col in categorical_cols:
-            try:
-                plt.figure(figsize=(10, 6))
-                value_counts = self.df[col].value_counts().head(10)  # Top 10 catégories
-                sns.barplot(x=value_counts.values, y=value_counts.index)
-                plt.title(f"Répartition de {col}")
-                plt.xlabel("Nombre de occurrences")
-                plt.tight_layout()
-                plt.savefig(Path(output_dir) / f"{col}_barplot.png")
-                plt.close()
-            except Exception as e:
-                print(f"⚠️ Erreur lors de la génération du barplot pour {col}: {e}")
-
+    
     def _generate_html_report(self) -> str:
         """Convertit les résultats en HTML avec graphiques intégrés."""
-        # En-tête HTML
         html = """
         <!DOCTYPE html>
         <html lang="fr">
@@ -454,7 +409,6 @@ class DataProfiler:
                 table { border-collapse: collapse; width: 100%; margin: 10px 0; }
                 th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
                 th { background-color: #f2f2f2; }
-                img { max-width: 100%; height: auto; margin: 10px 0; }
                 ul { margin-top: 5px; margin-bottom: 5px; }
             </style>
         </head>
@@ -466,7 +420,6 @@ class DataProfiler:
             <h2>📂 Métadonnées & Contexte Source</h2>
         """
 
-        # Ajout des métadonnées
         if self.source_file_path:
             source_filename = Path(self.source_file_path).name
             html += f"<p><strong>Nom du fichier source</strong> : {source_filename}</p>"
@@ -478,6 +431,16 @@ class DataProfiler:
         html += "<h2>🧱 Structure</h2>"
         for k, v in {**shape, **{'nb_doublons': self.profile_results.get('nb_doublons', 0)}}.items():
             html += f"<p><strong>{k}</strong>: {v}</p>"
+            
+        # Aperçu
+        html += "<h2>👀 Aperçu</h2>"
+        try:
+            preview_df = self.df.head(10)
+            html += preview_df.to_html(index=False, table_id='preview-table', escape=False)
+        except Exception:
+            html += "<p>Erreur lors de l'affichage de l'aperçu</p>"
+            if self.profile_results.get('sample_preview'):
+                html += f"<pre>{self.profile_results['sample_preview']}</pre>"        
 
         # Types
         html += "<h2>🏷️ Colonnes et Types</h2>"
@@ -486,9 +449,8 @@ class DataProfiler:
             html += f"<tr><td>{col}</td><td>{dtype}</td></tr>"
         html += "</table>"
 
-        # Valeurs manquantes (Correction pour afficher si vide)
+        # Valeurs manquantes
         html += "<h2>⚠️ Valeurs Manquantes</h2>"
-        
         missing_values_data = self.profile_results.get('missing_values', {})
         missing_found = False
         
@@ -499,7 +461,6 @@ class DataProfiler:
                     html += f"<p><strong>{col}</strong>: {pct:.2f}% ({count} lignes)</p>"
                     missing_found = True
         
-        # Si aucune valeur manquante, on confirme l'état sain
         if not missing_found:
             html += "<p>✅ <strong>Aucune valeur manquante détectée.</strong> Les données sont saines sur ce critère.</p>"
 
@@ -511,7 +472,6 @@ class DataProfiler:
                     html += f"<p><strong>{alert['count']} lignes</strong> avec > 90% de valeurs manquantes : {alert['message']}</p>"
                 elif alert['type'] == 'row_partially_empty':
                     html += f"<p><strong>{alert['count']} lignes</strong> avec {alert['percentage']}% de valeurs manquantes : {alert['message']}</p>"
-                    # Afficher les index des lignes si elles existent
                     if 'rows' in alert and alert['rows']:
                         html += f"<p>Index des lignes : {', '.join(map(str, alert['rows']))}</p>"
 
@@ -529,128 +489,119 @@ class DataProfiler:
                 html += f"<tr><td>{col}</td><td>{info['count']}</td><td>{info['lower_bound']:.2f}</td><td>{info['upper_bound']:.2f}</td></tr>"
             html += "</table>"
 
-        # Stats Catégorielles (Corrigées pour afficher toujours le Top 10 si pertinent)
+        # Stats Catégorielles
         if 'describe_categorical' in self.profile_results:
             html += "<h2>📊 Analyse des Colonnes Catégorielles</h2>"
             
             for col, stats in self.profile_results['describe_categorical'].items():
                 html += f"<h3>{col}</h3>"
-                
-                # Informations de base
                 html += f"<p><strong>Cardinalité absolue</strong> : {stats['cardinality_absolute']}</p>"
                 html += f"<p><strong>Cardinalité relative</strong> : {stats['cardinality_relative']}%</p>"
                 html += f"<p><strong>Sparsity Ratio | Taux de remplissage</strong> : {stats['sparsity_ratio']}%</p>"
-                
-                # Skewness de fréquence (Affichage neutre)
-                if stats['is_high_skewness']:
-                    html += f"<p><strong>Skewness Frequency | Asymétrie de distribution</strong> : {stats['skewness_frequency']}%</p>"
-                else:
-                    html += f"<p><strong>Skewness Frequency | Asymétrie de distribution</strong> : {stats['skewness_frequency']}%</p>"
+                html += f"<p><strong>Skewness Frequency | Asymétrie de distribution</strong> : {stats['skewness_frequency']}%</p>"
 
-                # Catégories les plus fréquentes (Uniquement si cardinalité <= 100 pour rester lisible)
                 if stats['cardinality_absolute'] > 0 and stats['cardinality_absolute'] <= 100:
                     html += "<p><strong>Top 10 Catégories les plus fréquentes</strong> :</p>"
                     html += "<ul>"
-                    top_10 = list(stats['top_categories'].items())
-                    
-                    for category, count in top_10:
+                    for category, count in list(stats['top_categories'].items()):
                         total_non_null = len(self.df) - self.df[col].isnull().sum()
-                        if total_non_null > 0:
-                            percentage = (count / total_non_null * 100).round(2)
-                        else:
-                            percentage = 0
+                        percentage = (count / total_non_null * 100).round(2) if total_non_null > 0 else 0
                         html += f"<li>{category} ({percentage}%)</li>"
                     html += "</ul>"
 
-                # Qualité du format
                 if stats['format_anomalies']:
-                    html += "<p><strong>⚠️ Anomalies de format détectées</strong> :</p>"
-                    html += "<ul>"
+                    html += "<p><strong>⚠️ Anomalies de format détectées</strong> :</p><ul>"
                     for issue in stats['format_anomalies']:
                         html += f"<li>{issue}</li>"
                     html += "</ul>"
                 else:
                     html += "<p><strong>✅ Format conforme</strong></p>"
 
-        # Visualisations intégrées
-        html += "<h2>📊 Graphiques</h2>"
-        
-        # Générer les graphiques directement dans le HTML
+        # Graphiques Numériques (Conteneur unique pour les 3 éléments)
         numeric_cols = self.df.select_dtypes(include=['number']).columns
-        for col in numeric_cols:
-            html += f"<h3>{col}</h3>"
-            
-            # Histogramme
-            try:
-                plt.figure(figsize=(8, 4))
-                sns.histplot(self.df[col].dropna(), kde=True)
-                plt.title(f"Distribution de {col}")
-                plt.tight_layout()
+        if len(numeric_cols) > 0:
+            html += "<h2>📊 Graphiques Numériques</h2>"
+            for col in numeric_cols:
+                html += f"<h3>{col}</h3>"
                 
-                # Convertir le graphique en base64
-                img_buffer = BytesIO()
-                plt.savefig(img_buffer, format='png')
-                img_buffer.seek(0)
-                img_base64 = base64.b64encode(img_buffer.getvalue()).decode()
-                plt.close()
+                # CONTENEUR FLEX : englobe l'histogramme, le boxplot et l'encart
+                html += '<div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; margin-bottom: 20px;">'
                 
-                html += f'<img src="data:image/png;base64,{img_base64}" alt="{col} histogram" width="400">'
-            except Exception as e:
-                html += f"<p>Erreur lors de la génération de l'histogramme pour {col}: {e}</p>"
-            
-            # Boxplot
-            try:
-                plt.figure(figsize=(6, 3))
-                sns.boxplot(y=self.df[col].dropna())
-                plt.title(f"Boxplot de {col}")
-                plt.tight_layout()
+                # 1. Histogramme (45% de largeur)
+                try:
+                    plt.figure(figsize=(7, 3.89)) 
+                    sns.histplot(self.df[col].dropna(), kde=True)
+                    plt.title(f"Distribution de {col}")
+                    plt.tight_layout()
+                    
+                    img_buffer = BytesIO()
+                    plt.savefig(img_buffer, format='png', dpi=150, bbox_inches='tight')
+                    img_buffer.seek(0)
+                    img_base64_hist = base64.b64encode(img_buffer.getvalue()).decode()
+                    plt.close()
+                    
+                    html += f'<div style="width: 45%;"><img src="data:image/png;base64,{img_base64_hist}" alt="{col} histogram" style="width: 100%; height: auto; display: block;"></div>'
+                except Exception as e:
+                    html += f'<div style="width: 45%;"><p>Erreur histogramme : {e}</p></div>'
                 
-                # Convertir le graphique en base64
-                img_buffer = BytesIO()
-                plt.savefig(img_buffer, format='png')
-                img_buffer.seek(0)
-                img_base64 = base64.b64encode(img_buffer.getvalue()).decode()
-                plt.close()
+                # 2. Boxplot (25% de largeur)
+                try:
+                    plt.figure(figsize=(3.5, 3.5)) 
+                    sns.boxplot(y=self.df[col].dropna())
+                    plt.title(f"Boxplot de {col}")
+                    plt.tight_layout()
+                    
+                    img_buffer = BytesIO()
+                    plt.savefig(img_buffer, format='png', dpi=100, bbox_inches='tight')
+                    img_buffer.seek(0)
+                    img_base64_box = base64.b64encode(img_buffer.getvalue()).decode()
+                    plt.close()
+                    
+                    html += f'<div style="width: 25%;"><img src="data:image/png;base64,{img_base64_box}" alt="{col} boxplot" style="width: 100%; height: auto; display: block;"></div>'
+                except Exception as e:
+                    html += f'<div style="width: 25%;"><p>Erreur boxplot : {e}</p></div>'
+
+                # 3. Statistiques (15% de largeur)
+                data = self.df[col].dropna()
+                if len(data) > 0:
+                    median_val = data.median()
+                    q1 = data.quantile(0.25)
+                    q3 = data.quantile(0.75)
+                    lower_bound = q1 - 1.5 * (q3 - q1)
+                    upper_bound = q3 + 1.5 * (q3 - q1)
+                    
+                    html += '<div style="width: 15%; box-sizing: border-box; padding: 10px; background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 6px; font-family: sans-serif;">'
+                    html += f'<p style="margin: 0 0 6px 0; font-size: 13px;"><strong>Statistiques de {col}</strong></p>'
+                    html += f'<p style="margin: 2px 0; font-size: 12px;">Médiane : {median_val:.2f}</p>'
+                    html += f'<p style="margin: 2px 0; font-size: 12px;">Borne inf. : {lower_bound:.2f}</p>'
+                    html += f'<p style="margin: 2px 0; font-size: 12px;">Borne sup. : {upper_bound:.2f}</p>'
+                    html += '</div>'
                 
-                html += f'<img src="data:image/png;base64,{img_base64}" alt="{col} boxplot" width="400">'
-            except Exception as e:
-                html += f"<p>Erreur lors de la génération du boxplot pour {col}: {e}</p>"
+                html += '</div>'  # Fermeture du conteneur flex unique
 
         # Graphiques catégoriels
         categorical_cols = self.df.select_dtypes(include=['str','object', 'category']).columns
-        for col in categorical_cols:
-            html += f"<h3>{col}</h3>"
-            try:
-                plt.figure(figsize=(10, 6))
-                value_counts = self.df[col].value_counts().head(10)  # Top 10 catégories
-                sns.barplot(x=value_counts.values, y=value_counts.index)
-                plt.title(f"Répartition de {col}")
-                plt.xlabel("Nombre de occurrences")
-                plt.tight_layout()
-                
-                # Convertir le graphique en base64
-                img_buffer = BytesIO()
-                plt.savefig(img_buffer, format='png')
-                img_buffer.seek(0)
-                img_base64 = base64.b64encode(img_buffer.getvalue()).decode()
-                plt.close()
-                
-                html += f'<img src="data:image/png;base64,{img_base64}" alt="{col} barplot" width="400">'
-            except Exception as e:
-                html += f"<p>Erreur lors de la génération du barplot pour {col}: {e}</p>"
-
-        # Aperçu
-        html += "<h2>👀 Aperçu</h2>"
-        try:
-            # Utiliser directement le DataFrame pour générer un tableau HTML propre
-            preview_df = self.df.head(10)
-            html += preview_df.to_html(index=False, table_id='preview-table', escape=False)
-        except Exception as e:
-            # Fallback si conversion échoue
-            html += "<p>Erreur lors de l'affichage de l'aperçu</p>"
-            # Afficher le texte brut en dernier recours
-            if self.profile_results['sample_preview']:
-                html += f"<pre>{self.profile_results['sample_preview']}</pre>"
+        if len(categorical_cols) > 0:
+            html += "<h2>📊 Graphiques Catégoriels</h2>"
+            for col in categorical_cols:
+                html += f"<h3>{col}</h3>"
+                try:
+                    plt.figure(figsize=(10, 4)) 
+                    value_counts = self.df[col].value_counts().head(10) 
+                    sns.barplot(x=value_counts.values, y=value_counts.index)
+                    plt.title(f"Répartition de {col}")
+                    plt.xlabel("Nombre d'occurrences")
+                    plt.tight_layout()
+                    
+                    img_buffer = BytesIO()
+                    plt.savefig(img_buffer, format='png', dpi=120, bbox_inches='tight')
+                    img_buffer.seek(0)
+                    img_base64 = base64.b64encode(img_buffer.getvalue()).decode()
+                    plt.close()
+                    
+                    html += f'<img src="data:image/png;base64,{img_base64}" alt="{col} barplot" style="width: 50%; height: auto;">'
+                except Exception as e:
+                    html += f"<p>Erreur lors de la génération du barplot pour {col}: {e}</p>"
 
         html += "</body></html>"
         return html
@@ -765,10 +716,6 @@ class PreCleaningProfiler(DataProfiler):
         """Génère un rapport HTML avec graphiques intégrés."""
         return super().generate_html_report(output_filename)
     
-    def generate_visualizations(self, output_dir: str = "data/processed/") -> None:
-        """Génère des visualisations et les sauvegarde dans un dossier."""
-        super().generate_visualizations(output_dir)
-    
     def interactive_report_choice(self, reports_dir, input_file):
         """Permet de choisir le format de rapport de manière interactive"""
         return super().interactive_report_choice(reports_dir, input_file)
@@ -818,6 +765,56 @@ class ExploratoryProfiler(DataProfiler):
         # Appeler le rapport de la classe parente
         html = super()._generate_html_report()
         
+        # Ajouter les nouvelles visualisations à la fin du rapport HTML
+        html += "<h2>📊 Visualisations Exploratoires</h2>"
+        
+        # Matrice de dispersion (scatter matrix)
+        numeric_cols = self.df.select_dtypes(include=['number']).columns
+        if len(numeric_cols) > 1:
+            try:
+                plt.figure(figsize=(25, 25))
+                pd.plotting.scatter_matrix(self.df[numeric_cols].dropna(), alpha=0.7, figsize=(25, 25), diagonal='hist')
+                plt.tight_layout()
+                
+                # Convertir le graphique en base64
+                img_buffer = BytesIO()
+                plt.savefig(img_buffer, format='png')
+                img_buffer.seek(0)
+                img_base64 = base64.b64encode(img_buffer.getvalue()).decode()
+                plt.close()
+                
+                html += '<h3>Matrice de dispersion</h3>'
+                html += f'<img src="data:image/png;base64,{img_base64}" alt="Scatter matrix" width="95%">'
+            except Exception as e:
+                html += f"<p>⚠️ Erreur lors de la génération de la matrice de dispersion: {e}</p>"
+        else:
+            html += "<p>Aucune matrice de dispersion générée (moins de 2 colonnes numériques).</p>"
+
+        # Heatmap de corrélation
+        if len(numeric_cols) > 1:
+            try:
+                plt.figure(figsize=(25, 20))
+                correlation_matrix = self.df[numeric_cols].corr()
+                sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', center=0, 
+                        square=True, linewidths=0.5, vmin=-1, vmax=1)
+                plt.tight_layout()
+                
+                # Convertir le graphique en base64
+                img_buffer = BytesIO()
+                plt.savefig(img_buffer, format='png')
+                img_buffer.seek(0)
+                img_base64 = base64.b64encode(img_buffer.getvalue()).decode()
+                plt.close()
+                
+                html += '<h3>Heatmap de corrélation</h3>'
+                html += f'<img src="data:image/png;base64,{img_base64}" alt="Correlation heatmap" width="95%">'
+            except Exception as e:
+                html += f"<p>⚠️ Erreur lors de la génération de la heatmap de corrélation: {e}</p>"
+        else:
+            html += "<p>Aucune heatmap de corrélation générée (moins de 2 colonnes numériques).</p>"
+        
+        # Fin du document HTML
+        html += "</body></html>"
         return html
     
     def generate_md_report(self, output_filename: str = "data/processed/data_profiling_report.md") -> str:
@@ -827,10 +824,6 @@ class ExploratoryProfiler(DataProfiler):
     def generate_html_report(self, output_filename: str = "data/processed/data_profiling_report.html") -> str:
         """Génère un rapport HTML avec graphiques intégrés."""
         return super().generate_html_report(output_filename)
-    
-    def generate_visualizations(self, output_dir: str = "data/processed/") -> None:
-        """Génère des visualisations et les sauvegarde dans un dossier."""
-        super().generate_visualizations(output_dir)
     
     def interactive_report_choice(self, reports_dir, input_file):
         """Permet de choisir le format de rapport de manière interactive"""

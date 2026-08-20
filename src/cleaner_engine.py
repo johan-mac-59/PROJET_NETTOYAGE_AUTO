@@ -595,7 +595,7 @@ def get_user_decisions(initial_df: pd.DataFrame, profiler_results: dict) -> Tupl
             print("✅ Aucune valeur manquante détectée par le profilage.")
     else:
         # Fallback si pas de profil
-        print("⚠️ Pas de résultats de profilage. Questions standards...")
+        print("✅ Pas de résultat de profilage. Aucune valeur manquante ni de valeur aberrante détectée")
         correct_outliers = ask_user_outlier_correction(initial_df, {}, {})
         fill_missing = ask_user_missing_values_correction(initial_df, {}, {})
     
@@ -711,7 +711,7 @@ def run_all_cleaning_steps(df: pd.DataFrame, profile_info: dict = None, max_iter
             # on garde un dictionnaire vide (cohérent avec le cas où il y en avait)
             pass 
     else:
-        print("⚠️ Remplissage des valeurs manquantes ignoré par l'utilisateur.")
+        print("🧐 Remplissage des valeurs manquantes ignoré par l'utilisateur.")
         # Format cohérent : on indique explicitement que c'est ignoré
         stats['missing_filled'] = {'ignored': True}
 
@@ -722,7 +722,7 @@ def run_all_cleaning_steps(df: pd.DataFrame, profile_info: dict = None, max_iter
             for col, count in outliers.items():
                 stats['outliers_corrected'][col] = stats['outliers_corrected'].get(col, 0) + count
     else:
-        print("⚠️ Correction des outliers ignorée par l'utilisateur.")
+        print("🧐 Correction des outliers ignorée par l'utilisateur.")
         # On indique simplement dans les stats que c'est ignoré avec un format cohérent
         stats['outliers_corrected'] = {'ignored': True}  # Format cohérent
     

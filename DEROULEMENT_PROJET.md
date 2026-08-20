@@ -979,4 +979,35 @@ Bien que l'architecture soit désormais robuste et capable de gérer deux phases
 
 ---
 
+---
+
+## Étape 29 : Expansion de l'Analyse Multivariée et Optimisation du Dashboarding HTML 📊🚀
+
+Dans cette phase majeure, le projet a franchi un nouveau cap : le passage d'un simple outil d'inspection de colonnes à un véritable système d'**analyse exploratoire multidimensionnelle**. L'objectif était d'ajouter de la profondeur statistique tout en optimisant la lisibilité du rapport final.
+
+### 1. Expansion du module `ExploratoryProfiler` : L'analyse de corrélation
+L'innovation majeure de cette étape a été l'introduction de visualisations permettant d'étudier les interactions entre les variables numériques, et non plus seulement leurs propriétés isolées.
+
+* **Matrice de Dispersion (Scatter Plot Matrix)** : Implémentation d'une matrice permettant de visualiser simultanément les relations binaires entre toutes les colonues numériques. Cela permet de détecter instantanément des clusters ou des tendances (linéaires/non-linéaires).
+* **Heatmap de Corrélation** : Intégration d'une carte thermique basée sur le coefficient de corrélation. L'utilisation de la palette `coolwarm` permet une lecture intuitive : le rouge pour les corrélations positives fortes, le bleu pour les corrélations négatives, et le blanc pour l'absence de lien.
+* **Valeur ajoutée métier** : Cette brique permet de repérer les redondances de données (colonnes fortement corrélées) et de comprendre les dépendances entre les indicateurs (ex: lien entre prix et volume).
+
+### 2. Refonte de l'Architecture Visuelle : Vers un "Dashboard" de Pilotage
+L'ajout de nouveaux graphiques risquait de créer un rapport trop long et illisible. Nous avons donc entrepris une refonte complète de la couche de présentation HTML pour transformer le rapport en un véritable **Dashboard décisionnel**.
+
+* **Optimisation du Layout (Display Flex)** : Abandon du mode "liste verticale" au profit d'un système de conteneurs flexibles. Nous avons regroupé l'Histogramme, le Boxplot et les statistiques dans une **ligne horizontale unique** par variable.
+* **L'Encart Statistique "Side-by-Side"** : Création d'un nouveau module d'affichage compact. À côté du Boxplot, nous avons intégré un encart stylisé (fond gris, bordures arrondies) présentant les métriques clés (Médiane, Bornes IQR). Cela permet de croiser la preuve visuelle (le graphique) et la preuve chiffrée (la statistique) sans aucun mouvement d'œil.
+* **Répartition des masses visuelles (Grid System)** : Application de proportions strictes pour garantir l'équilibre du rapport :
+    * **45%** pour l'Histogramme (vision de la distribution).
+    * **25%** pour le Boxplot (vision de la dispersion).
+    * **15%** pour l'Encart Statistique (vision de la précision).
+    * **15%** de marge pour la clarté et le confort de lecture.
+
+### 3. Impact sur la performance et l'auditabilité
+* **Densité d'information** : Le rapport est devenu beaucoup plus compact. Un analyste peut désormais auditer un dataset complet en un seul coup d'œil, sans scrolling excessif.
+* **Robustesse du rendu** : Utilisation de l'encodage **Base64** pour injecter les visuels directement dans le HTML, garantissant un rapport "Self-Contained" (autonome), portable par email et sans dépendance de fichiers externes.
+
+
+---
+
 *Projet en cours de développement - Capacité d'analyse visuelle et reporting autonome validée.*
