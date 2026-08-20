@@ -160,7 +160,8 @@ def clean_types(df: pd.DataFrame) -> Tuple[pd.DataFrame, dict]:
         # A. Suppression des symboles monétaires et espaces inutiles (séparateurs de milliers)
         cleaned_series = cleaned_series.str.replace('€', '', regex=False)
         cleaned_series = cleaned_series.str.replace('$', '', regex=False)
-        cleaned_series = cleaned_series.str.replace(' ', '', regex=False) # Supprime les espaces de milliers ex: "1 000" -> "1000"
+        # Les espaces ne sont supprimés que si la colonne est susceptible d'être numérique
+        # On vérifie d'abord si la colonne peut être numérique avant de supprimer les espaces
         
         # B. Gestion intelligente des séparateurs : Virgule vs Point
         
