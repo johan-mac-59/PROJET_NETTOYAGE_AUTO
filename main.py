@@ -5,7 +5,7 @@ import sys
 # Import des modules du projet
 from src.file_loader import load_file
 from src.cleaner_engine import run_all_cleaning_steps, get_user_decisions, prepare_target_columns_for_case_cleaning
-from src.data_profiler import DataProfiler
+from src.data_profiler import PreCleaningProfiler, ExploratoryProfiler
 from src.cleaner_logger import generate_and_print_report
 from src.cleaner_reporter import generate_enhanced_report
 
@@ -44,11 +44,10 @@ def main():
 
     # 3. PROFILAGE (Inséré avant le nettoyage pour avoir une trace fiable)
     profiler_results = {}
-    profiler = DataProfiler(initial_df, input_file)
+    profiler = PreCleaningProfiler(initial_df, input_file)
     profiler_results = profiler.run_profiling_workflow(input_file, reports_dir)
 
     # 4. PRÉPARATION DU NETTOYAGE CIBLÉ
-    
     # A. Extraction des colonnes cibles pour la casse (basé sur le profiler)
     target_cols_for_case = prepare_target_columns_for_case_cleaning(profiler_results)
     if target_cols_for_case:
@@ -100,6 +99,10 @@ def main():
         
     except Exception as e:
         print(f"⚠️ Erreur lors de la génération du rapport final : {e}")
+        
+    # 9. Profilage Post-Nettoyage
+    post_cleaning_profiler = ExploratoryProfiler(cleaned_df, output_file)
+    post_cleaning_results = post_cleaning_profiler.run_profiling_workflow(output_file, reports_dir)
 
 if __name__ == "__main__":
     main()

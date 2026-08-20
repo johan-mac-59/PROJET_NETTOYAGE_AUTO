@@ -940,6 +940,43 @@ L'architecture est désormais capable d'absorber de nouvelles étapes (comme une
 
 ---
 
+---
 
+## Étape 28 : Évolution vers l'Analyse Comparative : Programmation Orientée Objet (POO) et Profilage Dual 🧬🔍
+
+Dans cette phase, le projet a franchi un nouveau palier de maturité architecturale en passant d'un outil de profilage générique à un système de **double audit contextuel**. L'enjeu était de distinguer l'analyse de l'état "brut" (erreurs, bruit, anomalies) de l'analyse de l'état "nettoyé" (performance, complétude, intégrité).
+
+### 1. Le défi : Un besoin de dualité analytique
+Le pipeline manquait d'une distinction sémantique entre les deux phases critiques du workflow :
+* **Phase Pre-Cleaning** : L'objectif est de détecter les anomalies (casse, outliers, doublons) pour guider le nettoyage.
+* **Phase Post-Cleaning** : L'objectif est de valider la réussite des transformations et de vérifier la stabilité de la structure (absence de nouveaux biais).
+
+Utiliser une seule et même classe pour ces deux missions risquait de créer un outil trop monolithique et difficile à spécialiser.
+
+### 2. Implémentation : L'héritage et la spécialisation (POO)
+Pour répondre à ce besoin, nous avons refondu le module `data_profiler.py` en utilisant les principes de la **Programmation Orientée Objet (POO)**, plus précisément l'**héritage de classes**.
+
+* **La Classe Mère (`DataProfiler`)** : Elle conserve toute l'intelligence fondamentale (calcul des statistiques, génération des graphiques, moteur de reporting HTML/Markdown). Elle est le socle de robustesse.
+* **Les Classes Filles (`PreCleaningProfiler` & `ExploratoryProfiler`)** : 
+    * Elles héritent de toutes les capacités de la classe mère via `super()`.
+    * Elles permettent de spécialiser le comportement métier.
+    * **PreCleaningProfiler** : Conçue pour l'audit de détection (focus sur les alertes de qualité).
+    * **ExploratoryProfiler** : Conçue pour l'audit de validation (focus sur la distribution et la structure finale).
+
+### 3. Intégration réussie dans le Pipeline
+L'implémentation dans `main.py` a transformé le workflow en un véritable processus de **comparaison avant/après** :
+1. **Instanciation du `PreCleaningProfiler`** sur le DataFrame brut $\rightarrow$ Génération du rapport de diagnostic.
+2. **Exécution du `cleaner_engine`** $\rightarrow$ Transformation des données.
+3. **Instanciation de l'`ExploratoryProfiler`** sur le DataFrame nettoyé $\rightarrow$ Génération du rapport de validation.
+
+Cette structure permet désormais au Data Analyst de visualiser non seulement les transformations, mais aussi la **réduction de l'entropie** (le passage du désordre à l'ordre) au sein du dataset.
+
+### 4. Perspectives et Prochaines Étapes
+Bien que l'architecture soit désormais robuste et capable de gérer deux phases distinctes, le travail de personnalisation reste ouvert :
+* **Personnalisation des alertes** : Adapter les seuils de criticité spécifiquement pour la phase de pré-nettoyage.
+* **Enrichissement du mode exploratoire** : Ajouter des tests de corrélation ou de stabilité statistique uniquement dans la phase post-nettoyage.
+* **Standardisation de l'interface** : S'assurer que les deux profilers partagent un contrat d'interface identique pour une manipulation simplifiée dans l'orchestrateur.
+
+---
 
 *Projet en cours de développement - Capacité d'analyse visuelle et reporting autonome validée.*

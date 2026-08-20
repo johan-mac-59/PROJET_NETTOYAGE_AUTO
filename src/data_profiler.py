@@ -717,4 +717,128 @@ class DataProfiler:
             print(f"⚠️ Erreur lors du profilage : {e}")
             return {} # Retourne un dictionnaire vide pour éviter les NoneType plus loin
 
-            
+
+class PreCleaningProfiler(DataProfiler):
+    """Analyse descriptive des données avant le nettoyage."""
+    
+    def __init__(self, df: pd.DataFrame, source_file_path: str = None):
+        super().__init__(df, source_file_path)
+        
+    def run_analysis(self) -> Dict[str, Any]:
+        """Exécute l'analyse pré-nettoyage avec tous les éléments de la classe mère."""
+        # Appeler l'analyse de la classe parente
+        results = super().run_analysis()
+        
+        return results
+        
+    def _detect_outliers(self, numeric_df: pd.DataFrame) -> Dict[str, Any]:
+        """Détecte les outliers pour chaque colonne numérique en utilisant la méthode IQR."""
+        return super()._detect_outliers(numeric_df)
+        
+    def _analyze_categorical_columns(self, categorical_df: pd.DataFrame) -> Dict[str, Any]:
+        """Analyse approfondie des colonnes catégorielles avec synthèse des anomalies."""
+        return super()._analyze_categorical_columns(categorical_df)
+        
+    def _analyze_row_quality(self) -> Dict[str, Any]:
+        """Analyse la qualité des lignes en fonction du pourcentage de valeurs manquantes."""
+        return super()._analyze_row_quality()
+        
+    def _generate_markdown_report(self) -> str:
+        """Génère un rapport Markdown avec des éléments spécifiques à l'analyse pré-nettoyage."""
+        # Appeler le rapport de la classe parente
+        md = super()._generate_markdown_report()
+        
+        return md
+        
+    def _generate_html_report(self) -> str:
+        """Génère un rapport HTML avec des éléments spécifiques à l'analyse pré-nettoyage."""
+        # Appeler le rapport de la classe parente
+        html = super()._generate_html_report()
+        
+        return html
+    
+    def generate_md_report(self, output_filename: str = "data/processed/data_profiling_report.md") -> str:
+        """Sauvegarde le rapport Markdown."""
+        return super().generate_md_report(output_filename)
+    
+    def generate_html_report(self, output_filename: str = "data/processed/data_profiling_report.html") -> str:
+        """Génère un rapport HTML avec graphiques intégrés."""
+        return super().generate_html_report(output_filename)
+    
+    def generate_visualizations(self, output_dir: str = "data/processed/") -> None:
+        """Génère des visualisations et les sauvegarde dans un dossier."""
+        super().generate_visualizations(output_dir)
+    
+    def interactive_report_choice(self, reports_dir, input_file):
+        """Permet de choisir le format de rapport de manière interactive"""
+        return super().interactive_report_choice(reports_dir, input_file)
+    
+    def run_profiling_workflow(self, source_path: Path, reports_dir: Path) -> Dict[str, Any]:
+        """
+        Exécute le profilage complet et génère le rapport choisi.
+        Retourne uniquement les résultats d'analyse.
+        """
+        return super().run_profiling_workflow(source_path, reports_dir)
+    
+
+class ExploratoryProfiler(DataProfiler):
+    """Analyse descriptive des données avant le nettoyage."""
+    
+    def __init__(self, df: pd.DataFrame, source_file_path: str = None):
+        super().__init__(df, source_file_path)
+        
+    def run_analysis(self) -> Dict[str, Any]:
+        """Exécute l'analyse pré-nettoyage avec tous les éléments de la classe mère."""
+        # Appeler l'analyse de la classe parente
+        results = super().run_analysis()
+        
+        return results
+        
+    def _detect_outliers(self, numeric_df: pd.DataFrame) -> Dict[str, Any]:
+        """Détecte les outliers pour chaque colonne numérique en utilisant la méthode IQR."""
+        return super()._detect_outliers(numeric_df)
+        
+    def _analyze_categorical_columns(self, categorical_df: pd.DataFrame) -> Dict[str, Any]:
+        """Analyse approfondie des colonnes catégorielles avec synthèse des anomalies."""
+        return super()._analyze_categorical_columns(categorical_df)
+        
+    def _analyze_row_quality(self) -> Dict[str, Any]:
+        """Analyse la qualité des lignes en fonction du pourcentage de valeurs manquantes."""
+        return super()._analyze_row_quality()
+        
+    def _generate_markdown_report(self) -> str:
+        """Génère un rapport Markdown avec des éléments spécifiques à l'analyse pré-nettoyage."""
+        # Appeler le rapport de la classe parente
+        md = super()._generate_markdown_report()
+        
+        return md
+        
+    def _generate_html_report(self) -> str:
+        """Génère un rapport HTML avec des éléments spécifiques à l'analyse pré-nettoyage."""
+        # Appeler le rapport de la classe parente
+        html = super()._generate_html_report()
+        
+        return html
+    
+    def generate_md_report(self, output_filename: str = "data/processed/data_profiling_report.md") -> str:
+        """Sauvegarde le rapport Markdown."""
+        return super().generate_md_report(output_filename)
+    
+    def generate_html_report(self, output_filename: str = "data/processed/data_profiling_report.html") -> str:
+        """Génère un rapport HTML avec graphiques intégrés."""
+        return super().generate_html_report(output_filename)
+    
+    def generate_visualizations(self, output_dir: str = "data/processed/") -> None:
+        """Génère des visualisations et les sauvegarde dans un dossier."""
+        super().generate_visualizations(output_dir)
+    
+    def interactive_report_choice(self, reports_dir, input_file):
+        """Permet de choisir le format de rapport de manière interactive"""
+        return super().interactive_report_choice(reports_dir, input_file)
+    
+    def run_profiling_workflow(self, source_path: Path, reports_dir: Path) -> Dict[str, Any]:
+        """
+        Exécute le profilage complet et génère le rapport choisi.
+        Retourne uniquement les résultats d'analyse.
+        """
+        return super().run_profiling_workflow(source_path, reports_dir)
